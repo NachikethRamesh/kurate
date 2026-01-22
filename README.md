@@ -1,4 +1,4 @@
-# Dave's Link Sharing App
+# Kurate App
 
 A secure, full-stack link sharing application with user authentication and cloud synchronization.
 
