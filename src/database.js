@@ -1,4 +1,4 @@
-const SALT = 'salt_daves_links_2025';
+const SALT = 'salt_kurate_2025';
 const encoder = new TextEncoder();
 
 async function generatePasswordHash(password) {
@@ -36,14 +36,14 @@ function getDomainFromUrl(url) {
 
 async function extractTitleFromUrl(url) {
   try {
-    const response = await fetch(url, { 
+    const response = await fetch(url, {
       method: 'GET',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DavesLinksBot/1.0)' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KurateBot/1.0)' },
       signal: AbortSignal.timeout(5000) // 5 second timeout
     });
-    
+
     if (!response.ok) return null;
-    
+
     const html = await response.text();
     const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
     return titleMatch ? titleMatch[1].trim().substring(0, 200) : null; // Limit title length
@@ -56,12 +56,12 @@ export async function createUser(db, username, password) {
   try {
     const passwordHash = await generatePasswordHash(password);
     const userHash = await generateUserHash(username);
-    
+
     const result = await db.prepare(`
       INSERT INTO users (username, password_hash, user_hash)
       VALUES (?, ?, ?)
     `).bind(username, passwordHash, userHash).run();
-    
+
     return {
       success: true,
       userId: result.meta.last_row_id,
@@ -85,7 +85,7 @@ export async function getUserByUsername(db, username) {
       FROM users 
       WHERE username = ?
     `).bind(username).first();
-    
+
     return user;
   } catch (error) {
     return null;
@@ -125,7 +125,7 @@ export async function updateUserPassword(db, username, newPassword) {
       SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
       WHERE username = ?
     `).bind(newPasswordHash, username).run();
-    
+
     return {
       success: result.meta.changes > 0,
       changes: result.meta.changes
@@ -143,10 +143,10 @@ export async function getUserLinks(db, userId) {
       WHERE user_id = ?
       ORDER BY timestamp DESC
     `).bind(userId).all();
-    
+
     const results = links.results || [];
     const formattedLinks = new Array(results.length);
-    
+
     for (let i = 0; i < results.length; i++) {
       const link = results[i];
       formattedLinks[i] = {
@@ -180,19 +180,19 @@ export async function createLink(db, userId, linkData) {
     const { url, title, category = 'general' } = linkData;
     const domain = getDomainFromUrl(url);
     const finalTitle = title || await extractTitleFromUrl(url) || 'Untitled';
-    
+
     const result = await db.prepare(`
       INSERT INTO links (user_id, url, title, category, domain, is_read, is_favorite)
       VALUES (?, ?, ?, ?, ?, 0, 0)
     `).bind(userId, url, finalTitle, category, domain).run();
-    
+
     // Fetch the created link
     const newLink = await db.prepare(`
       SELECT id, url, title, category, is_read, is_favorite, domain, date_added, timestamp
       FROM links 
       WHERE id = ?
     `).bind(result.meta.last_row_id).first();
-    
+
     return {
       success: true,
       link: {
@@ -221,7 +221,7 @@ export async function deleteLink(db, userId, linkId) {
       DELETE FROM links 
       WHERE id = ? AND user_id = ?
     `).bind(linkId, userId).run();
-    
+
     return {
       success: result.changes > 0,
       changes: result.changes
@@ -261,7 +261,7 @@ export async function toggleFavorite(db, userId, linkId, isFavorite = 1) {
       SET is_favorite = ?
       WHERE id = ? AND user_id = ?
     `).bind(isFavorite, linkId, userId).run();
-    
+
     return {
       success: result.changes > 0,
       changes: result.changes

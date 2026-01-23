@@ -1,4 +1,4 @@
--- Cloudflare D1 Database Schema for Dave's Links App
+-- Cloudflare D1 Database Schema for Kurate
 
 -- Users table for authentication
 CREATE TABLE IF NOT EXISTS users (

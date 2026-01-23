@@ -1,5 +1,5 @@
 {
-  "name": "daves-link-sharing-app",
+  "name": "kurate-app",
   "version": "1.0.0",
   "description": "A secure link sharing application with Cloudflare Workers and D1 Database",
   "main": "src/index.js",
@@ -13,11 +13,10 @@
   "keywords": [
     "link-sharing",
     "bookmark",
-    "pocket-alternative",
     "cloudflare-pages",
     "serverless"
   ],
-  "author": "Dave",
+  "author": "Kurate",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0",

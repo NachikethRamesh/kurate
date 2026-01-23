@@ -14,7 +14,7 @@ const { setupD1Database } = require('./setup-d1');
 function checkDatabaseExists() {
   try {
     const result = execSync('npx wrangler d1 list', { encoding: 'utf8', stdio: 'pipe' });
-    return result.includes('daves-links-db');
+    return result.includes('kurate-db');
   } catch (error) {
     return false;
   }
@@ -27,12 +27,12 @@ function deployToCloudflare() {
   try {
     // Build the application
     execSync('npm run build', { stdio: 'inherit' });
-    
+
     // Deploy with wrangler
     execSync('npx wrangler deploy', { stdio: 'inherit' });
-    
+
     return true;
-    
+
   } catch (error) {
     return false;
   }
@@ -45,19 +45,19 @@ async function testDeployment() {
   try {
     // Wait a moment for deployment to propagate
     await new Promise(resolve => setTimeout(resolve, 10000));
-    
+
     // Test health endpoint
-    const healthUrl = 'https://daveslinkshare.workers.dev/api/health';
-    
+    const healthUrl = 'https://kurate.net/api/health';
+
     const response = await fetch(healthUrl);
-    
+
     if (response.ok) {
       const data = await response.json();
       return true;
     }
-    
+
     return false;
-    
+
   } catch (error) {
     return false;
   }
@@ -69,34 +69,34 @@ async function testDeployment() {
 async function completeDeploy() {
   try {
     let dbExists = false;
-    
+
     // Step 1: Check authentication
     try {
       execSync('npx wrangler whoami', { stdio: 'pipe' });
     } catch (error) {
       process.exit(1);
     }
-    
+
     // Step 2: Check if database exists
     dbExists = checkDatabaseExists();
-    
+
     // Step 3: Setup D1 database if needed
     if (!dbExists) {
       await setupD1Database();
     }
-    
+
     // Step 4: Database is ready for use
-    
+
     // Step 5: Deploy to Cloudflare
     const deploySuccess = deployToCloudflare();
-    
+
     if (!deploySuccess) {
       process.exit(1);
     }
-    
+
     // Step 6: Test deployment
     await testDeployment();
-    
+
   } catch (error) {
     process.exit(1);
   }

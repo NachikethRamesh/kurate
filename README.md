@@ -1,4 +1,4 @@
-# Kurate App
+# Kurate
 
 A secure, full-stack link sharing application with user authentication and cloud synchronization.
 
@@ -92,7 +92,7 @@ Visit `http://localhost:3000` to access the application.
 - ✅ **User Isolation** - Complete data separation per user
 - ✅ **Link Management** - Add, edit, delete, categorize
 - ✅ **Cloud Sync** - Cloudflare D1 integration
-- ✅ **Modern UI** - Pocket-inspired design
+- ✅ **Modern UI** - Modern clean design
 - ✅ **Mobile Responsive** - Works on all devices
 - ✅ **Real-time Updates** - Immediate UI feedback
 - ✅ **Error Handling** - Comprehensive error management
@@ -182,4 +182,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-Built with ❤️ by Dave | Inspired by Pocket's clean design
+Built with ❤️ by Kurate
