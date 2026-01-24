@@ -161,6 +161,9 @@ function getIndexHTML() {
                 <a id="resetPasswordLink" class="auth-reset-link">Forgot your password?</a>
             </div>
         </div>
+        <div class="auth-footer">
+            Kurate by <a href="https://nachikethramesh.com" target="_blank" rel="noopener noreferrer">Nachiketh Ramesh</a>
+        </div>
     </div>
 
     <!-- Password Reset Container -->
@@ -218,6 +221,9 @@ function getIndexHTML() {
             <div class="auth-toggle">
                 <a id="backToLoginLink" class="auth-toggle-link">← Back to Sign In</a>
             </div>
+        </div>
+        <div class="auth-footer">
+            Kurate by <a href="https://nachikethramesh.com" target="_blank" rel="noopener noreferrer">Nachiketh Ramesh</a>
         </div>
     </div>
 
@@ -391,6 +397,24 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
+}
+
+.auth-footer {
+    margin-top: 24px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.auth-footer a {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-footer a:hover {
+    color: var(--primary-red);
+    text-decoration: underline;
 }
 
 .auth-header {
