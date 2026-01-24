@@ -4,100 +4,100 @@ import { checkDatabaseHealth } from './database.js';
 import { CORS_HEADERS, createResponse, createErrorResponse } from './constants.js';
 
 async function handleHealth(request, env) {
-  try {
-    const dbHealth = await checkDatabaseHealth(env.DB);
+    try {
+        const dbHealth = await checkDatabaseHealth(env.DB);
 
-    const responseData = {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      version: '2.0.0',
-      environment: {
-        hasDatabase: !!env.DB,
-        hasJwtSecret: !!env.JWT_SECRET,
-        nodeEnv: env.NODE_ENV || 'production'
-      },
-      database: dbHealth
-    };
-    
-    return createResponse(responseData, 200);
+        const responseData = {
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            version: '2.0.0',
+            environment: {
+                hasDatabase: !!env.DB,
+                hasJwtSecret: !!env.JWT_SECRET,
+                nodeEnv: env.NODE_ENV || 'production'
+            },
+            database: dbHealth
+        };
 
-      } catch (error) {
-    return createErrorResponse(error.message, 500);
-  }
+        return createResponse(responseData, 200);
+
+    } catch (error) {
+        return createErrorResponse(error.message, 500);
+    }
 }
 
 export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const path = url.pathname;
+    async fetch(request, env, ctx) {
+        const url = new URL(request.url);
+        const path = url.pathname;
 
-    // Handle CORS preflight requests
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 200, headers: CORS_HEADERS });
-    }
+        // Handle CORS preflight requests
+        if (request.method === 'OPTIONS') {
+            return new Response(null, { status: 200, headers: CORS_HEADERS });
+        }
 
-    // API Routes
-    if (path === '/api/health') {
-      return handleHealth(request, env);
-    }
+        // API Routes
+        if (path === '/api/health') {
+            return handleHealth(request, env);
+        }
 
-    if (path === '/api/auth/login') {
-      return handleAuthLogin(request, env);
-    }
+        if (path === '/api/auth/login') {
+            return handleAuthLogin(request, env);
+        }
 
-    if (path === '/api/auth/register') {
-      return handleAuthRegister(request, env);
-    }
+        if (path === '/api/auth/register') {
+            return handleAuthRegister(request, env);
+        }
 
-    if (path === '/api/auth/reset-password') {
-      return handlePasswordReset(request, env);
-    }
-    
-    if (path === '/api/auth/logout') {
-      return handleAuthLogout(request, env);
-    }
+        if (path === '/api/auth/reset-password') {
+            return handlePasswordReset(request, env);
+        }
 
-    if (path === '/api/links') {
-      return handleLinks(request, env);
-    }
+        if (path === '/api/auth/logout') {
+            return handleAuthLogout(request, env);
+        }
 
-    if (path === '/api/links/mark-read') {
-      return handleMarkRead(request, env);
-    }
+        if (path === '/api/links') {
+            return handleLinks(request, env);
+        }
 
-    if (path === '/api/links/toggle-favorite') {
-      return handleToggleFavorite(request, env);
-    }
+        if (path === '/api/links/mark-read') {
+            return handleMarkRead(request, env);
+        }
 
-    // Static file serving
-    if (path === '/' || path === '/index.html' || path === '/login' || path === '/signup' || path === '/home' || path === '/dashboard' || path === '/reset-password') {
-      return new Response(getIndexHTML(), {
-        headers: { 'Content-Type': 'text/html' }
-      });
-    }
+        if (path === '/api/links/toggle-favorite') {
+            return handleToggleFavorite(request, env);
+        }
 
-    if (path === '/styles.css') {
-      return new Response(getStylesCSS(), {
-        headers: { 'Content-Type': 'text/css' }
-      });
-    }
+        // Static file serving
+        if (path === '/' || path === '/index.html' || path === '/login' || path === '/signup' || path === '/home' || path === '/dashboard' || path === '/reset-password') {
+            return new Response(getIndexHTML(), {
+                headers: { 'Content-Type': 'text/html' }
+            });
+        }
 
-    if (path === '/app.js') {
-      return new Response(getAppJS(), {
-        headers: { 'Content-Type': 'application/javascript' }
-      });
-    }
+        if (path === '/styles.css') {
+            return new Response(getStylesCSS(), {
+                headers: { 'Content-Type': 'text/css' }
+            });
+        }
 
-    // Default fallback to index.html for SPA routing
-    return new Response(getIndexHTML(), {
-      headers: { 'Content-Type': 'text/html' }
-    });
-  }
+        if (path === '/app.js') {
+            return new Response(getAppJS(), {
+                headers: { 'Content-Type': 'application/javascript' }
+            });
+        }
+
+        // Default fallback to index.html for SPA routing
+        return new Response(getIndexHTML(), {
+            headers: { 'Content-Type': 'text/html' }
+        });
+    }
 };
 
 // Static file content functions
 function getIndexHTML() {
-  return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -116,7 +116,7 @@ function getIndexHTML() {
     <div id="authContainer" class="auth-container">
         <div class="auth-card">
             <div class="auth-header">
-                <h1 id="authTitle" class="auth-title">Welcome back</h1>
+                <h1 id="authTitle" class="auth-title">Kurate - For the curious</h1>
                 <p id="authSubtitle" class="auth-subtitle">Sign in to your account</p>
             </div>
             
@@ -167,7 +167,7 @@ function getIndexHTML() {
     <div id="resetContainer" class="auth-container hidden">
         <div class="auth-card">
             <div class="auth-header">
-                <h1 class="auth-title">Reset Password</h1>
+                <h1 class="auth-title">Kurate - For the curious</h1>
                 <p class="auth-subtitle">Enter your username and new password</p>
             </div>
             
@@ -238,50 +238,63 @@ function getIndexHTML() {
             <div class="main-content">
                 <!-- Sidebar -->
                 <aside class="sidebar">
-                    <div class="sidebar-header">
-                        <h2 class="sidebar-title">Add Link</h2>
+                    <div class="sidebar-card">
+                        <div class="sidebar-header">
+                            <h2 class="sidebar-title">Add Link</h2>
+                        </div>
+                        <form id="addLinkForm" class="add-link-form">
+                            <div class="form-group">
+                                <label for="linkUrl" class="form-label">URL</label>
+                                <input 
+                                    type="url" 
+                                    id="linkUrl" 
+                                    class="form-input" 
+                                    placeholder="https://example.com"
+                                    required
+                                >
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="linkTitle" class="form-label">Title (optional)</label>
+                                <input 
+                                    type="text" 
+                                    id="linkTitle" 
+                                    class="form-input" 
+                                    placeholder="Custom title"
+                                >
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="linkCategory" class="form-label">Category</label>
+                                <select id="linkCategory" class="form-select">
+                                    <option value="" disabled selected>Select Category</option>
+                                    <option value="News">News</option>
+                                    <option value="Sports">Sports</option>
+                                    <option value="Entertainment">Entertainment</option>
+                                    <option value="Work">Work</option>
+                                    <option value="Business">Business</option>
+                                    <option value="Reading">Reading</option>
+                                    <option value="Technology">Technology</option>
+                                    <option value="Education">Education</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            
+                            <button type="submit" id="addBtn" class="btn btn-primary btn-full">
+                                Save
+                            </button>
+                        </form>
                     </div>
-                    <form id="addLinkForm" class="add-link-form">
-                        <div class="form-group">
-                            <label for="url" class="form-label">URL</label>
-                            <input 
-                                type="url" 
-                                id="url" 
-                                class="form-input" 
-                                placeholder="https://example.com"
-                                required
-                            >
+
+                    <div class="sidebar-card">
+                        <div class="sidebar-info">
+                            You can save anything you find on the internet
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="title" class="form-label">Title (optional)</label>
-                            <input 
-                                type="text" 
-                                id="title" 
-                                class="form-input" 
-                                placeholder="Custom title"
-                            >
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="category" class="form-label">Category</label>
-                            <select id="category" class="form-select">
-                                <option value="">Select Category</option>
-                                <option value="Sports">Sports</option>
-                                <option value="Entertainment">Entertainment</option>
-                                <option value="Work">Work</option>
-                                <option value="Business">Business</option>
-                                <option value="Reading">Reading</option>
-                                <option value="Technology">Technology</option>
-                                <option value="Education">Education</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        
-                        <button type="submit" id="addBtn" class="btn btn-primary btn-full">
-                            Save
-                        </button>
-                    </form>
+                    </div>
+
+                    <div class="sidebar-footer">
+                        Kurate by <a href="https://nachikethramesh.com" target="_blank" rel="noopener noreferrer">Nachiketh Ramesh</a>
+                    </div>
                 </aside>
 
                 <!-- Content Area -->
@@ -317,7 +330,7 @@ function getIndexHTML() {
 }
 
 function getStylesCSS() {
-  return `/* Kurate - Modern Clean Design */
+    return `/* Kurate - Modern Clean Design */
 :root {
     --primary-red: #ef4056;
     --primary-red-hover: #d73648;
@@ -359,6 +372,7 @@ body {
 .auth-container {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     background: var(--light-gray);
@@ -371,8 +385,12 @@ body {
     box-shadow: var(--shadow);
     padding: 40px;
     width: 100%;
-    max-width: 400px;
+    max-width: 360px;
+    min-height: 520px;
     border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .auth-header {
@@ -381,10 +399,10 @@ body {
 }
 
 .auth-title {
-    font-size: 28px;
+    font-size: 20px;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    margin-bottom: 24px;
 }
 
 .auth-subtitle {
@@ -593,13 +611,23 @@ body {
 }
 
 .sidebar {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    /* Remove sticky to align with content top */
+    position: static;
+    align-self: start;
+}
+
+.sidebar-card {
     background: var(--white);
     border-radius: 8px;
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
-    /* Remove sticky to align with content top */
-    position: static;
-    align-self: start;
+    overflow: hidden;
 }
 
 .sidebar-header {
@@ -617,6 +645,32 @@ body {
 
 .add-link-form {
     padding: 20px;
+}
+
+.sidebar-footer {
+    padding: 0 20px;
+    border-top: none;
+    font-size: 13px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.sidebar-info {
+    padding: 20px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.sidebar-footer a {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.sidebar-footer a:hover {
+    color: var(--primary-red);
+    text-decoration: underline;
 }
 
 .content-area {
@@ -928,7 +982,7 @@ body {
 }
 
 function getAppJS() {
-  return `// Dave's Links App - Client-side JavaScript
+    return `// Dave's Links App - Client-side JavaScript
 class LinksApp {
     constructor() {
         this.links = [];
@@ -1342,13 +1396,13 @@ class LinksApp {
         const authToggleLink = document.getElementById('authToggleLink');
 
         if (this.isLoginMode) {
-            authTitle.textContent = 'Welcome back';
+            authTitle.textContent = 'Kurate - For the curious';
             authSubtitle.textContent = 'Sign in to your account';
             authSubmit.textContent = 'Sign In';
             authToggleText.textContent = "Don't have an account?";
             authToggleLink.textContent = 'Sign up';
         } else {
-            authTitle.textContent = 'Create Account';
+            authTitle.textContent = 'Kurate - For the curious';
             authSubtitle.textContent = 'Sign up for a new account';
             authSubmit.textContent = 'Sign Up';
             authToggleText.textContent = 'Already have an account?';

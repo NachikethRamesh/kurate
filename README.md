@@ -182,4 +182,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-Built with ❤️ by Nachiketh Ramesh
+Built with ❤️ by Kurate
