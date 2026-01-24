@@ -46,3 +46,15 @@ SELECT
     u.username
 FROM links l
 JOIN users u ON l.user_id = u.id;
+
+-- Metrics table for tracking user events (Obfuscated as 'system sync' in API)
+CREATE TABLE IF NOT EXISTS metrics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER, -- Nullable for pre-auth events
+    event_type TEXT NOT NULL,
+    metadata TEXT, -- JSON string for trace details
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_metrics_user_id ON metrics(user_id);
+CREATE INDEX IF NOT EXISTS idx_metrics_event_type ON metrics(event_type);

@@ -9,7 +9,7 @@ compatibility_date = "2025-01-01"
 # Then replace the database_id below with the actual ID from the command output
 [[d1_databases]]
 binding = "DB"
-database_name = "kurate-db"
+database_name = "daves-links-db"
 database_id = "d10d8b73-a101-4a15-8584-662ed7091d5e"
 
 [vars]
