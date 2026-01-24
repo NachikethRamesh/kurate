@@ -289,3 +289,20 @@ export async function checkDatabaseHealth(db) {
     };
   }
 }
+
+export async function trackEvent(db, userId, eventType, metadata) {
+  try {
+    const result = await db.prepare(`
+      INSERT INTO metrics (user_id, event_type, metadata)
+      VALUES (?, ?, ?)
+    `).bind(userId, eventType, metadata).run();
+
+    return {
+      success: true,
+      id: result.meta.last_row_id
+    };
+  } catch (error) {
+    // Fail silently in production to avoid disrupting user experience
+    return { success: false, error: error.message };
+  }
+}

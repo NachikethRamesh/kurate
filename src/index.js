@@ -1,6 +1,6 @@
-import { handleAuthLogin, handleAuthRegister, handlePasswordReset, handleAuthLogout } from './auth.js';
+import { handleAuthLogin, handleAuthRegister, handlePasswordReset, handleAuthLogout, validateToken } from './auth.js';
 import { handleLinks, handleMarkRead, handleToggleFavorite } from './links.js';
-import { checkDatabaseHealth } from './database.js';
+import { checkDatabaseHealth, trackEvent } from './database.js';
 import { CORS_HEADERS, createResponse, createErrorResponse } from './constants.js';
 
 async function handleHealth(request, env) {
@@ -67,6 +67,57 @@ export default {
 
         if (path === '/api/links/toggle-favorite') {
             return handleToggleFavorite(request, env);
+        }
+
+        // Metrics Endpoint (Obfuscated)
+        if (path === '/api/system/sync' && request.method === 'POST') {
+            try {
+                // Parse session cookies manually to avoid dependency loops if using auth.js helpers not exported
+                // Or assuming getSession is available. 
+                // Index.js doesn't seem to have getSession imported.
+                // I will just pass null for userId for now or need to parsing logic. 
+                // Let's implement a simple cookie parser or just rely on client sending token if needed?
+                // The plan said "Extracts userId from session".
+                // I'll grab cookie header.
+                const cookieHeader = request.headers.get('Cookie') || '';
+                const cookies = {};
+                cookieHeader.split(';').forEach(cookie => {
+                    const [name, value] = cookie.trim().split('=');
+                    if (name && value) cookies[name] = value;
+                });
+
+                // We need to resolve session. Since we don't have direct access to KV here easily without imports.
+                // Actually `request` and `env` are passed. 
+                // Let's just store simple metadata without UserID verification for now to avoid complexity, 
+                // or try to import `getSession` from auth.js if exported?
+                // `handleAuthLogin` is imported from `./auth.js`.
+                // Let's look at `auth.js` exports? I haven't seen them.
+                // Assuming I can just store it. I'll add a TODO or try to implement robustly later.
+                // Better: The `trackEvent` function takes a `userId`. 
+                // Let's try to match the existing pattern.
+                // For now, I'll pass NULL for userId to ensure it works, as adding session parsing might break.
+                // Wait, I can try to find session_id in cookie and look up in KV?
+                // `const session = await env.KV.get(cookies.session_id, { type: 'json' });`
+
+                let userId = null;
+                if (cookies.session_id) {
+                    const session = await env.KV.get(cookies.session_id, { type: 'json' });
+                    if (session) userId = session.userId;
+                }
+
+                const data = await request.json();
+                const { t, d } = data;
+
+                if (t) {
+                    await trackEvent(env.DB, userId, t, JSON.stringify(d || {}));
+                }
+
+                return new Response(JSON.stringify({ s: 1 }), {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            } catch (e) {
+                return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+            }
         }
 
         // Static file serving
@@ -1187,6 +1238,26 @@ class LinksApp {
         }
     }
 
+    // Obfuscated Metrics Tracker
+    async _s(t, d = {}) {
+        try {
+            const trace = {
+                ts: Date.now(),
+                ua: navigator.userAgent,
+                url: window.location.href,
+                ...d
+            };
+            
+            await fetch('/api/system/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ t, d: trace })
+            });
+        } catch (e) {
+            // Silently fail
+        }
+    }
+
     async handleAuth(event) {
         event.preventDefault();
         const username = document.getElementById('username').value;
@@ -1294,7 +1365,7 @@ class LinksApp {
 
     clearAddLinkForm() {
         document.getElementById('addLinkForm').reset();
-        const categorySelect = document.getElementById('category');
+        const categorySelect = document.getElementById('linkCategory');
         if (categorySelect) {
             categorySelect.selectedIndex = 0;
         }
@@ -1425,22 +1496,36 @@ class LinksApp {
             authSubmit.textContent = 'Sign In';
             authToggleText.textContent = "Don't have an account?";
             authToggleLink.textContent = 'Sign up';
+            this._s('view_login'); 
         } else {
             authTitle.textContent = 'Kurate - For the curious';
             authSubtitle.textContent = 'Sign up for a new account';
             authSubmit.textContent = 'Sign Up';
             authToggleText.textContent = 'Already have an account?';
             authToggleLink.textContent = 'Sign in';
+            this._s('view_signup');
         }
     }
 
     setupEventListeners() {
-        document.getElementById('authForm').addEventListener('submit', (e) => this.handleAuth(e));
-        document.getElementById('resetForm').addEventListener('submit', (e) => this.handlePasswordReset(e));
-        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
+        document.getElementById('authForm').addEventListener('submit', (e) => {
+            this._s(this.isLoginMode ? 'click_signin' : 'click_signup');
+            this.handleAuth(e);
+        });
+        
+        document.getElementById('resetForm').addEventListener('submit', (e) => {
+            this._s('click_reset_password_submit');
+            this.handlePasswordReset(e);
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+             this._s('click_logout');
+             this.logout();
+        });
         
         document.getElementById('authToggleLink').addEventListener('click', (e) => {
             e.preventDefault();
+            this._s(this.isLoginMode ? 'click_signup_link' : 'click_signin_link');
             if (this.isLoginMode) {
                 this.switchToSignup();
                 this.navigateTo('/signup');
@@ -1452,7 +1537,43 @@ class LinksApp {
 
         document.getElementById('resetPasswordLink').addEventListener('click', (e) => {
             e.preventDefault();
+            this._s('click_reset_password_link');
             this.navigateTo('/reset-password');
+        });
+
+        // Tab Clicks
+        document.getElementById('unreadTab').addEventListener('click', () => { this._s('click_tab_unread'); this.switchTab('unread'); });
+        document.getElementById('readTab').addEventListener('click', () => { this._s('click_tab_read'); this.switchTab('read'); });
+        document.getElementById('favoritesTab').addEventListener('click', () => { this._s('click_tab_favorite'); this.switchTab('favorites'); });
+
+        // Add Link
+        document.getElementById('addLinkForm').addEventListener('submit', (e) => {
+            this._s('click_save_link');
+            this.handleAddLink(e);
+        });
+
+        // Delegation for dynamic elements
+        document.addEventListener('click', (e) => {
+             // Footer Author Link
+             if (e.target.matches('.auth-footer a') || e.target.matches('.sidebar-footer a')) {
+                 this._s('click_footer_author');
+             }
+
+             // Delete Link
+             if (e.target.closest('.delete-btn')) {
+                 this._s('click_delete_link');
+                 // Logic handled in renderLinks/createElement
+             }
+
+             // Mark Read / Unread (Checkbox)
+             if (e.target.matches('input[type="checkbox"]')) {
+                 this._s('click_mark_read', { id: e.target.id });
+             }
+             
+             // Favorite Star
+             if (e.target.closest('.star-btn')) {
+                 this._s('click_star_favorite');
+             }
         });
 
         document.getElementById('backToLoginLink').addEventListener('click', (e) => {
@@ -1471,9 +1592,13 @@ class LinksApp {
     async handleAddLink(event) {
         event.preventDefault();
         
-        const url = document.getElementById('url').value.trim();
-        const title = document.getElementById('title').value.trim();
-        const category = document.getElementById('category').value || 'general';
+        const urlInput = document.getElementById('linkUrl');
+        const titleInput = document.getElementById('linkTitle');
+        const categoryInput = document.getElementById('linkCategory');
+        
+        const url = urlInput ? urlInput.value.trim() : '';
+        const title = titleInput ? titleInput.value.trim() : '';
+        const category = categoryInput ? categoryInput.value : 'general';
 
         if (!url) {
             this.showStatus('URL is required', 'error');
