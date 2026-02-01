@@ -2,6 +2,12 @@
 
 A secure, full-stack link sharing application with user authentication, cloud synchronization, and dedicated browser extensions for effortless curation.
 
+## ✨ Latest Refinements (Feb 2026)
+- **Official Store Branding**: Integrated high-fidelity Chrome (2022) and Firefox (2019) logos across the platform.
+- **Premium Landing Page**: Redesigned extension download buttons into sleek, dashboard-style rounded containers.
+- **Improved UX**: Tightened landing page layout and integrated a fully compliant Privacy Policy flow.
+- **Cross-Platform Readiness**: Manifest V3 compliant with optimized ZIP packaging for instant store submission.
+
 ## 🏗️ Architecture
 
 ### Core System
@@ -11,10 +17,10 @@ A secure, full-stack link sharing application with user authentication, cloud sy
 - **Authentication**: JWT tokens with SHA-256 password hashing
 
 ### Browser Extensions (Chrome & Firefox)
-- **Manifest V3**: State-of-the-art extension architecture
-- **Popup UI**: Minimalist design echoing the landing page aesthetic
-- **Branding**: High-fidelity, vibrant SVG logos for Chrome and Firefox store visibility.
-- **Communication**: Directly interfaces with the Kurate API for seamless saving
+- **Manifest V3**: State-of-the-art extension architecture.
+- **Premium Buttons**: Integrated into the landing page with custom dashboard-inspired containers (rounded boxes, soft shadows).
+- **Official Branding**: Uses official 2022 Chrome and 2019 Firefox logos for maximum trust and recognition.
+- **Communication**: Directly interfaces with the Kurate API for seamless saving.
 
 ## 🚀 Quick Start (Web App)
 
