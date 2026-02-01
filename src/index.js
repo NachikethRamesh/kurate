@@ -1721,12 +1721,12 @@ function getLandingHTML() {
     </main>
 
     <!-- Simple Footer -->
-    <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 mt-12 flex justify-between items-center text-sm text-gray-400">
-        <div>© 2026 Kurate. All rights reserved.</div>
-        <div class="flex gap-6">
+    <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 mt-12 flex flex-col sm:flex-row justify-between items-center gap-6 text-sm text-gray-400">
+        <div class="flex flex-col sm:flex-row items-center gap-6">
+            <span>© 2026 Kurate. All rights reserved.</span>
             <a href="#" onclick="event.preventDefault(); openPrivacyModal()" class="hover:text-gray-600 transition-colors">Privacy Policy</a>
-            <a href="mailto:hello@kurate.net" class="hover:text-gray-600 transition-colors">Contact</a>
         </div>
+        <a href="mailto:contact@kurate.net" class="hover:text-gray-600 transition-colors">Contact</a>
     </footer>
 
     <!-- Preload Fonts to prevent FOUT layout shift -->
