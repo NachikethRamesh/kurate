@@ -1,184 +1,83 @@
 # Kurate
 
-A secure, full-stack link sharing application with user authentication and cloud synchronization.
+A secure, full-stack link sharing application with user authentication, cloud synchronization, and dedicated browser extensions for effortless curation.
 
 ## 🏗️ Architecture
 
-### Architecture
+### Core System
 - **Frontend**: Vanilla JavaScript SPA (embedded in Cloudflare Worker)
 - **Backend**: Cloudflare Workers serverless functions
 - **Database**: Cloudflare D1 (SQLite) for cloud storage
 - **Authentication**: JWT tokens with SHA-256 password hashing
 
-## 🚀 Quick Start
+### Browser Extensions (Chrome & Firefox)
+- **Manifest V3**: State-of-the-art extension architecture
+- **Popup UI**: Minimalist design echoing the landing page aesthetic
+- **Communication**: Directly interfaces with the Kurate API for seamless saving
+
+## 🚀 Quick Start (Web App)
 
 ### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Environment Setup
-```bash
-# Copy the example environment file
-cp env.example .env
-
-# Edit .env with your Cloudflare credentials
-# Get your API token from: https://dash.cloudflare.com/profile/api-tokens
-```
-
-### 3. Verify Environment Setup
-```bash
-# Test that environment variables are loaded correctly
-npm run test-env
-```
-
-### 4. Run Development Server
+### 2. Run Development Server
 ```bash
 npm run dev
 ```
+Visit `http://localhost:8787` to access the application.
 
-Visit `http://localhost:3000` to access the application.
+## 🧩 Browser Extensions
+
+Kurate includes official extensions for **Chrome** and **Firefox** to allow one-click saving from any tab.
+
+### Features:
+- **Instant Save**: Capture any page URL and Title instantly.
+- **On-the-fly Categorization**: Choose categories (Technology, Business, etc.) directly in the popup.
+- **Persistent Login**: Securely stores your auth token for a seamless experience.
+
+### Packaging for Store Submission:
+To create the `kurate-extension.zip` for store submission:
+```bash
+# Re-packs the extension folder into a cross-platform ZIP
+# Ensure you are on a system with Python installed
+python -c "import zipfile, os; arch = zipfile.ZipFile('kurate-extension.zip', 'w', zipfile.ZIP_DEFLATED); [arch.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), 'extension').replace(os.sep, '/')) for root, dirs, files in os.walk('extension') for file in files]; arch.close()"
+```
 
 ## 📁 Project Structure
 
 ```
-├── src/                   # Cloudflare Worker source code
-│   ├── index.js          # Main worker file with embedded HTML/CSS/JS
-│   ├── auth.js           # Authentication handlers
-│   ├── database.js       # D1 database operations
-│   ├── links.js          # Links CRUD operations
-│   └── constants.js      # Shared constants and utilities
-├── scripts/              # Deployment and setup scripts
-│   ├── deploy.js         # Complete deployment automation
-│   └── setup-d1.js       # D1 database setup
-├── schema.sql            # D1 database schema
-├── wrangler.toml         # Cloudflare Workers configuration
-├── package.json          # Dependencies and scripts
-├── env.example           # Environment variables template
-└── README.md            # This file
+├── extension/            # Browser extension source files
+│   ├── icons/           # 16, 32, 48, 128px icons
+│   ├── manifest.json    # Extension configuration (Chrome/Firefox)
+│   ├── popup.js         # Extension logic & API calls
+│   └── popup.html       # Extension UI
+├── src/                 # Cloudflare Worker source code
+│   ├── index.js         # Main landing page & SPA logic
+│   ├── auth.js          # Authentication handlers
+│   └── database.js      # D1 database operations
+├── kurate-extension.zip # Prepared store-ready archive
+├── schema.sql           # D1 database schema
+├── wrangler.toml        # Cloudflare Workers configuration
+└── README.md           # This file
 ```
 
-## 🔐 Security Features
+## 🔐 Security & Privacy
 
-- **Password Security**: bcrypt hashing with salt rounds
-- **JWT Authentication**: Secure token-based authentication
-- **User Isolation**: Each user's data is completely isolated
-- **Rate Limiting**: API rate limiting to prevent abuse
-- **CORS Protection**: Configurable CORS policies
-- **Helmet.js**: Security headers and XSS protection
-
-## 🌐 API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Create new user
-- `POST /api/auth/login` - User login
-- `GET /api/auth/check/:username` - Check if user exists
-- `GET /api/auth/verify` - Verify JWT token
-- `POST /api/auth/logout` - User logout
-
-### Links Management
-- `GET /api/links` - Get user's links
-- `POST /api/links` - Add new link
-- `PUT /api/links/:id` - Update link
-- `DELETE /api/links/:id` - Delete link
-- `GET /api/links/categories` - Get available categories
-
-### System
-- `GET /api/health` - Health check
+- **Password Security**: JWT Authentication with secure token storage.
+- **User Isolation**: Complete data separation per user.
+- **Privacy Policy**: Built-in compliant privacy policy accessible at `kurate.net/?p=privacy`.
+- **Transparency**: Fully compliant with Firefox "Data Collection Permissions."
 
 ## 🎨 Features
 
-- ✅ **Secure Authentication** - JWT-based with bcrypt
-- ✅ **User Isolation** - Complete data separation per user
-- ✅ **Link Management** - Add, edit, delete, categorize
-- ✅ **Cloud Sync** - Cloudflare D1 integration
-- ✅ **Modern UI** - Modern clean design
-- ✅ **Mobile Responsive** - Works on all devices
-- ✅ **Real-time Updates** - Immediate UI feedback
-- ✅ **Error Handling** - Comprehensive error management
-- ✅ **Rate Limiting** - API protection
-- ✅ **Security Headers** - Helmet.js protection
-
-## 🔧 Development
-
-### Available Scripts
-- `npm start` - Production server
-- `npm run dev` - Development with nodemon
-- `npm run setup` - Interactive environment setup
-- `npm run test-env` - Test environment variables
-- `npm run build` - No build needed (static files)
-- `npm test` - Run tests (not implemented yet)
-
-### Environment Variables
-All configuration is handled through environment variables. See `env.template` for required variables.
-
-## 🚢 Deployment
-
-### Option 1: Cloudflare (Recommended)
-
-#### Setup Cloudflare
-```bash
-# Install Wrangler CLI
-npm install -g wrangler
-
-# Login to Cloudflare
-wrangler login
-
-# Deploy the application
-npm run deploy
-```
-
-#### Environment Variables in Cloudflare
-Set these in your Cloudflare dashboard:
-- `JWT_SECRET` - Strong JWT secret
-- `NODE_ENV` - Set to "production"
-
-#### Deployment Options
-```bash
-# Deploy everything (recommended)
-npm run deploy
-
-# Deploy only static files to Pages
-npm run deploy:pages
-
-# Deploy only API to Workers
-npm run deploy:worker
-```
-
-### Option 2: Traditional Hosting
-1. Set up Node.js hosting (Heroku, Railway, DigitalOcean, etc.)
-2. Configure environment variables
-3. Run `npm start`
-
-### Option 3: Docker
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-## 📝 Cloudflare D1 Setup
-
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) and create a D1 database
-2. Run the setup script: `npm run setup:d1`
-3. Get your API token from the dashboard
-4. Update `.env` with your credentials
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details
+- ✅ **Cross-Platform Curation** - Chrome & Firefox extensions.
+- ✅ **Secure Authentication** - Modern JWT-based flow.
+- ✅ **Link Management** - Add, edit, delete, and categorize links.
+- ✅ **Premium UI** - Minimalist, modern design with smooth animations.
+- ✅ **Mobile Responsive** - Optimized for all screen sizes.
+- ✅ **Cloud Sync** - Powered by Cloudflare D1 for high availability.
 
 ---
 
