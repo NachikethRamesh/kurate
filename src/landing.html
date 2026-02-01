@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kurate - For the curious</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --orange: #EA580C;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background-color: #FDFAF8;
+            /* Subtle warm white */
+            color: #1a1a1a;
+        }
+
+        .font-serif {
+            font-family: 'Instrument Serif', serif;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="w-full px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
+        <div class="flex items-center gap-2">
+            <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs">
+                ★
+            </div>
+            <span class="font-bold text-2xl tracking-tight">kurate.</span>
+        </div>
+        <button onclick="openAuthModal()"
+            class="px-6 py-2.5 bg-[#1C1917] text-white rounded-full text-base font-medium hover:bg-[#D94E28] transition-colors">
+            Start Curating
+        </button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex flex-col lg:flex-row items-center justify-between max-w-7xl mx-auto px-8 py-8 lg:py-12 gap-16">
+
+        <!-- Left Text -->
+        <div class="lg:w-3/5 max-w-3xl">
+            <h1 class="text-4xl lg:text-5xl leading-tight font-serif text-[#1C1917] mb-8 tracking-tight">
+                Your personal library of the best ideas you find online.<br>
+                <span class="text-[#D94E28]">You are the curator.</span>
+            </h1>
+
+            <p class="text-lg text-gray-600 leading-relaxed max-w-2xl mb-10">
+                Kurate is your personal library for collecting and organizing the
+                best content from across
+                the
+                web.<br><br>
+                Save articles, videos, and podcasts in one beautiful, simplified space.
+            </p>
+
+            <button onclick="openAuthModal()"
+                class="group bg-[#1C1917] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#D94E28] transition-all duration-300 flex items-center gap-2">
+                Start Curating
+                <span class="group-hover:translate-x-1 transition-transform">→</span>
+            </button>
+        </div>
+
+        <!-- Right Visual -->
+        <div class="lg:w-2/5 flex justify-center lg:justify-end relative">
+            <!-- Card Container -->
+            <div class="relative group transform rotate-[2deg] hover:rotate-0 transition-all duration-500 ease-out">
+                <div
+                    class="w-[380px] h-[520px] bg-black rounded-[2rem] overflow-hidden relative shadow-2xl shadow-gray-200">
+                    <!-- Image -->
+                    <img src="/minimalist_living_woodcut.png" alt="Minimalist Living Art"
+                        class="w-full h-full object-cover opacity-90">
+
+                    <!-- Overlay Text -->
+                    <div class="absolute bottom-6 left-6 z-10">
+                        <h3 class="font-serif text-white text-3xl italic tracking-wide drop-shadow-md">"Minimalist
+                            Living"</h3>
+                    </div>
+
+                    <!-- Gradient Overlay for text readability -->
+                    <div
+                        class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Background Glow -->
+            <div
+                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-orange-100/50 rounded-full blur-[100px] -z-10">
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Preload Fonts to prevent FOUT layout shift -->
+    <script>
+        document.fonts.ready.then(() => {
+            document.body.classList.add('fonts-loaded');
+        });
+    </script>
+    <!-- Auth Modal -->
+    <div id="authModal" class="fixed inset-0 z-50 hidden opacity-0 transition-opacity duration-300">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeAuthModal()"></div>
+
+        <!-- Modal Content -->
+        <div class="relative min-h-screen flex items-center justify-center p-4">
+            <div
+                class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 relative transform scale-95 transition-all duration-300 translate-y-4">
+                <!-- Close Button -->
+                <button onclick="closeAuthModal()"
+                    class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+
+                <!-- Auth Container -->
+                <div id="modalAuthContainer">
+                    <div class="text-center mb-8">
+                        <h2 id="modalTitle" class="text-3xl font-serif text-[#1C1917] mb-3">Start Curating</h2>
+                        <p id="modalSubtitle" class="text-gray-500"></p>
+                    </div>
+
+                    <form id="modalAuthForm" onsubmit="handleAuthSubmit(event)">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
+                                <input type="text" id="modalUsername"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    placeholder="Enter your username" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Password</label>
+                                <input type="password" id="modalPassword"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    placeholder="Enter your password" required>
+                            </div>
+                        </div>
+
+                        <div id="authError" class="hidden mt-4 text-center text-red-500 text-sm"></div>
+
+                        <button type="submit"
+                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D94E28] transition-all duration-300 shadow-lg shadow-orange-500/20">
+                            <span id="modalSubmitText">Sign In</span>
+                        </button>
+                    </form>
+
+                    <div class="mt-8 text-center text-sm text-gray-500">
+                        <span id="modalToggleText">Don't have an account?</span>
+                        <button onclick="toggleAuthMode()"
+                            class="text-[#D94E28] font-bold hover:underline ml-1 decoration-2 underline-offset-2 transition-colors"
+                            id="modalToggleLink">Join Kurate</button>
+                    </div>
+
+                    <div class="mt-4 text-center">
+                        <button onclick="toggleResetMode()"
+                            class="text-sm text-gray-400 hover:text-gray-600 transition-colors">Forgot your
+                            password?</button>
+                    </div>
+                </div>
+
+                <!-- Reset Password Container -->
+                <div id="modalResetContainer" class="hidden">
+                    <div class="text-center mb-8">
+                        <h2 class="text-3xl font-serif text-[#1C1917] mb-3">Reset Password</h2>
+                        <p class="text-gray-500">Enter your username and new password</p>
+                    </div>
+
+                    <form id="modalResetForm" onsubmit="handleResetSubmit(event)">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
+                                <input type="text" id="resetUsername"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    placeholder="Enter your username" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">New Password</label>
+                                <input type="password" id="newPassword"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    placeholder="Min 6 characters" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Confirm
+                                    Password</label>
+                                <input type="password" id="confirmPassword"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    placeholder="Confirm new password" required>
+                            </div>
+                        </div>
+
+                        <div id="resetError" class="hidden mt-4 text-center text-red-500 text-sm"></div>
+                        <div id="resetSuccess" class="hidden mt-4 text-center text-green-600 text-sm"></div>
+
+                        <button type="submit"
+                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D94E28] transition-all duration-300 shadow-lg shadow-orange-500/20">
+                            Reset Password
+                        </button>
+                    </form>
+
+                    <div class="mt-8 text-center">
+                        <button onclick="toggleResetMode()"
+                            class="text-sm text-gray-500 hover:text-[#1C1917] transition-colors flex items-center justify-center gap-2 mx-auto">
+                            <span>←</span> Back to Sign In
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoginMode = true;
+
+        function openAuthModal() {
+            const modal = document.getElementById('authModal');
+            modal.classList.remove('hidden');
+            // Trigger reflow
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0');
+            modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
+            modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
+        }
+
+        function closeAuthModal() {
+            const modal = document.getElementById('authModal');
+            modal.classList.add('opacity-0');
+            const content = modal.querySelector('div[class*="scale-100"]');
+            if (content) {
+                content.classList.remove('scale-100', 'translate-y-0');
+                content.classList.add('scale-95', 'translate-y-4');
+            }
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                resetForms();
+            }, 300);
+        }
+
+        function resetForms() {
+            document.getElementById('modalAuthForm').reset();
+            document.getElementById('modalResetForm').reset();
+            document.getElementById('authError').classList.add('hidden');
+            document.getElementById('resetError').classList.add('hidden');
+            document.getElementById('resetSuccess').classList.add('hidden');
+
+            // Reset to login view
+            isLoginMode = true;
+            updateAuthUI();
+            document.getElementById('modalAuthContainer').classList.remove('hidden');
+            document.getElementById('modalResetContainer').classList.add('hidden');
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            updateAuthUI();
+        }
+
+        function toggleResetMode() {
+            const authContainer = document.getElementById('modalAuthContainer');
+            const resetContainer = document.getElementById('modalResetContainer');
+
+            if (resetContainer.classList.contains('hidden')) {
+                authContainer.classList.add('hidden');
+                resetContainer.classList.remove('hidden');
+            } else {
+                resetContainer.classList.add('hidden');
+                authContainer.classList.remove('hidden');
+            }
+        }
+
+        function updateAuthUI() {
+            const title = document.getElementById('modalTitle');
+            const subtitle = document.getElementById('modalSubtitle');
+            const submitText = document.getElementById('modalSubmitText');
+            const toggleText = document.getElementById('modalToggleText');
+            const toggleLink = document.getElementById('modalToggleLink');
+            const errorDiv = document.getElementById('authError');
+
+            errorDiv.classList.add('hidden');
+
+            if (isLoginMode) {
+                title.textContent = 'Start Curating';
+                subtitle.textContent = '';
+                submitText.textContent = 'Sign In';
+                toggleText.textContent = "Don't have an account?";
+                toggleLink.textContent = 'Join Kurate';
+            } else {
+                title.textContent = 'Join Kurate';
+                subtitle.textContent = '';
+                submitText.textContent = 'Join Kurate';
+                toggleText.textContent = 'Already have an account?';
+                toggleLink.textContent = 'Sign in';
+            }
+        }
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('modalUsername').value;
+            const password = document.getElementById('modalPassword').value;
+            const errorDiv = document.getElementById('authError');
+
+            errorDiv.classList.add('hidden');
+
+            const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    localStorage.setItem('authToken', data.token);
+                    window.location.href = '/home';
+                } else {
+                    errorDiv.textContent = data.error || 'Authentication failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        async function handleResetSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('resetUsername').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const errorDiv = document.getElementById('resetError');
+            const successDiv = document.getElementById('resetSuccess');
+
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = "Passwords don't match";
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, newPassword })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    successDiv.textContent = 'Password reset successfully. You can now sign in.';
+                    successDiv.classList.remove('hidden');
+                    document.getElementById('modalResetForm').reset();
+                    setTimeout(() => {
+                        toggleResetMode();
+                        isLoginMode = true; // Switch to login
+                        updateAuthUI();
+                    }, 2000);
+                } else {
+                    errorDiv.textContent = data.error || 'Reset failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                errorDiv.textContent = 'An error occurred. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeAuthModal();
+        });
+    </script>
+</body>
+
+
+</html>

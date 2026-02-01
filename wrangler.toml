@@ -2,6 +2,10 @@ name = "kurate"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
 
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
 # No build command needed for Cloudflare Worker
 
 # Cloudflare D1 Database Configuration
