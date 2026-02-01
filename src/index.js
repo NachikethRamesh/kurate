@@ -1640,7 +1640,7 @@ function getLandingHTML() {
     </style>
 </head>
 
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col overflow-x-hidden">
 
     <!-- Navbar -->
     <nav class="w-full px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
@@ -1686,7 +1686,7 @@ function getLandingHTML() {
             <!-- Card Container -->
             <div class="relative group transform rotate-[2deg] hover:rotate-0 transition-all duration-500 ease-out">
                 <div
-                    class="w-[380px] h-[520px] bg-black rounded-[2rem] overflow-hidden relative shadow-2xl shadow-gray-200">
+                    class="w-full max-w-[380px] aspect-[380/520] bg-black rounded-[2rem] overflow-hidden relative shadow-2xl shadow-gray-200">
                     <!-- Image -->
                     <img src="/minimalist_living_woodcut.png" alt="Minimalist Living Art"
                         class="w-full h-full object-cover opacity-90">
@@ -1830,6 +1830,12 @@ function getLandingHTML() {
         let isLoginMode = true;
 
         function openAuthModal() {
+            // Check if user is already logged in
+            if (localStorage.getItem('authToken')) {
+                window.location.href = '/home';
+                return;
+            }
+
             const modal = document.getElementById('authModal');
             modal.classList.remove('hidden');
             // Trigger reflow

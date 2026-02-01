@@ -1,0 +1,297 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-warm: #FDFAF8;
+    --card-bg: #FFFFFF;
+    --text-main: #1C1917;
+    --text-muted: #57534E;
+    --text-light: #A8A29E;
+    --primary-orange: #D94E28;
+    --border-subtle: #F0EFEA;
+    --border-strong: #E7E5E4;
+    --shadow-floating: 0 12px 30px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
+    /* Stronger shadow for image 2 feel */
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+}
+
+body {
+    width: 255px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: #FDFAF8;
+    /* Match landing page background */
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    border-radius: 0;
+    /* Sharp edges for the extension outline */
+}
+
+.view {
+    display: block;
+    background: #FDFAF8;
+}
+
+.view.hidden {
+    display: none !important;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px 12px;
+    background: #FDFAF8;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.logo:hover {
+    opacity: 0.8;
+}
+
+.logo-icon {
+    width: 20px;
+    height: 20px;
+    background: #000000;
+    /* Black solid circle as requested */
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.logo-text {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+}
+
+.content {
+    padding: 0 20px 20px;
+}
+
+h2 {
+    font-size: 19px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+}
+
+.form-group {
+    margin-bottom: 14px;
+}
+
+label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-light);
+    margin-bottom: 8px;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 11px 16px;
+    background: rgba(249, 248, 246, 0.7);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-main);
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--primary-orange);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(217, 78, 40, 0.06);
+}
+
+/* Custom Dropdown Styling - Matching Image 2 in 1791 */
+.custom-dropdown {
+    position: relative;
+    user-select: none;
+}
+
+.dropdown-trigger {
+    width: 100%;
+    padding: 11px 16px;
+    background: rgba(249, 248, 246, 0.7);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    /* Slightly smaller to match options */
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.dropdown-trigger:hover {
+    background: #fff;
+    border-color: var(--border-strong);
+}
+
+.dropdown-trigger.active {
+    border-color: var(--primary-orange);
+    background: #fff;
+}
+
+.dropdown-options {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #FFFFFF;
+    border-radius: var(--radius-md);
+    /* Same very rounded as image 2 */
+    box-shadow: var(--shadow-floating);
+    border: 1px solid var(--border-subtle);
+    z-index: 1000;
+    display: none;
+    padding: 8px;
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-options.active {
+    display: block;
+}
+
+.dropdown-option {
+    padding: 6px 14px;
+    /* Reduced vertical padding for smaller height */
+    font-size: 11px;
+    /* Smaller font size */
+    color: var(--text-main);
+    cursor: pointer;
+    border-radius: 8px;
+    /* Slightly smaller radius for smaller size */
+    transition: all 0.15s ease;
+    margin-bottom: 1px;
+}
+
+.dropdown-option:last-child {
+    margin-bottom: 0;
+}
+
+.dropdown-option:hover {
+    background: var(--bg-warm);
+    /* Soft warm highlight like image 2 */
+}
+
+.dropdown-option.selected {
+    background: #F8F5F0;
+    font-weight: 600;
+}
+
+.url-preview {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(249, 248, 246, 0.9);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+.url-text {
+    font-size: 11px;
+    color: var(--text-light);
+    word-break: break-all;
+    line-height: 1.5;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--primary-orange);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: #c1441f;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(217, 78, 40, 0.2);
+}
+
+.btn-text {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 6px 10px;
+}
+
+.error {
+    color: #DC2626;
+    font-size: 11px;
+    margin-top: 10px;
+    padding: 10px;
+    background: #FEF2F2;
+    border-radius: 10px;
+}
+
+/* Success View */
+.success-content {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.success-icon {
+    width: 54px;
+    height: 54px;
+    background: var(--primary-orange);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    margin: 0 auto 18px;
+    box-shadow: 0 4px 16px rgba(217, 78, 40, 0.3);
+}
+
+.success-content p {
+    color: var(--text-muted);
+    margin-bottom: 24px;
+    font-size: 13px;
+}

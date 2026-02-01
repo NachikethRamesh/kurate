@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kurate - Save Link</title>
+    <!-- Same fonts as website -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <!-- Login View -->
+    <div id="loginView" class="view">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">★</div>
+                <span class="logo-text">kurate.</span>
+            </div>
+        </div>
+        <div class="content">
+            <h2>Sign in to save links</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn-primary">Sign In</button>
+            </form>
+            <div id="loginError" class="error hidden"></div>
+        </div>
+    </div>
+
+    <!-- Save Link View -->
+    <div id="saveView" class="view hidden">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">★</div>
+                <span class="logo-text">kurate.</span>
+            </div>
+            <button id="logoutBtn" class="btn-text">Logout</button>
+        </div>
+        <div class="content">
+            <h2>Save Link</h2>
+            <form id="saveForm">
+                <div class="form-group">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" placeholder="Custom title" required>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <!-- Custom Dropdown structure -->
+                    <div class="custom-dropdown" id="categoryDropdown">
+                        <div class="dropdown-trigger" id="dropdownTrigger">
+                            <span id="selectedCategory">Select Category</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 9l6 6 6-6"></path>
+                            </svg>
+                        </div>
+                        <div class="dropdown-options" id="dropdownOptions">
+                            <div class="dropdown-option" data-value="Sports">Sports</div>
+                            <div class="dropdown-option" data-value="Entertainment">Entertainment</div>
+                            <div class="dropdown-option" data-value="Business">Business</div>
+                            <div class="dropdown-option" data-value="Technology">Technology</div>
+                            <div class="dropdown-option" data-value="Education">Education</div>
+                            <div class="dropdown-option" data-value="Other">Other</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="category" name="category" required>
+                </div>
+                <div class="url-preview">
+                    <label>URL</label>
+                    <div id="urlDisplay" class="url-text"></div>
+                </div>
+                <button type="submit" class="btn-primary">Save to Kurate</button>
+            </form>
+            <div id="saveStatus" class="status"></div>
+        </div>
+    </div>
+
+    <!-- Success View -->
+    <div id="successView" class="view hidden">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">★</div>
+                <span class="logo-text">kurate.</span>
+            </div>
+        </div>
+        <div class="content success-content">
+            <div class="success-icon">✓</div>
+            <h2>Link Saved!</h2>
+            <p>Your link has been saved to Kurate</p>
+            <button id="viewLinksBtn" class="btn-primary">View My Links</button>
+            <button id="saveAnotherBtn" class="btn-text">Save Another</button>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
