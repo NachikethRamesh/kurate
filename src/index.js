@@ -1648,12 +1648,19 @@ function getLandingHTML() {
             <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs">
                 ★
             </div>
+            </div>
             <span class="font-bold text-2xl tracking-tight">kurate.</span>
         </div>
-        <button onclick="openAuthModal()"
-            class="px-6 py-2.5 bg-[#1C1917] text-white rounded-full text-base font-medium hover:bg-[#D94E28] transition-colors">
-            Start Curating
-        </button>
+        <div class="flex items-center gap-4">
+            <button onclick="openSignupModal()"
+                class="px-6 py-2.5 bg-[#D94E28] text-white rounded-full text-base font-medium hover:bg-[#B73D1E] transition-colors">
+                Join Kurate!
+            </button>
+            <button onclick="openAuthModal()"
+                class="px-6 py-2.5 bg-[#1C1917] text-white rounded-full text-base font-medium hover:bg-[#D94E28] transition-colors">
+                Sign In
+            </button>
+        </div>
     </nav>
 
     <!-- Main Content -->
@@ -1674,11 +1681,17 @@ function getLandingHTML() {
                 Save articles, videos, and podcasts in one beautiful, simplified space.
             </p>
 
-            <button onclick="openAuthModal()"
-                class="group bg-[#1C1917] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#D94E28] transition-all duration-300 flex items-center gap-2">
-                Start Curating
-                <span class="group-hover:translate-x-1 transition-transform">→</span>
-            </button>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <button onclick="openSignupModal()"
+                    class="group bg-[#D94E28] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#B73D1E] transition-all duration-300 flex items-center gap-2">
+                    Join Kurate!
+                    <span class="group-hover:translate-x-1 transition-transform">→</span>
+                </button>
+                <button onclick="openAuthModal()"
+                    class="group bg-[#1C1917] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#D94E28] transition-all duration-300 flex items-center gap-2">
+                    Start Curating
+                </button>
+            </div>
         </div>
 
         <!-- Right Visual -->
@@ -1845,6 +1858,14 @@ function getLandingHTML() {
             modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
         }
 
+        function openSignupModal() {
+            isLoginMode = false;
+            updateAuthUI();
+            openAuthModal();
+            // Update URL to reflect signup action
+            window.history.pushState({}, document.title, window.location.pathname + '?action=signup');
+        }
+
         function closeAuthModal() {
             const modal = document.getElementById('authModal');
             modal.classList.add('opacity-0');
@@ -1857,6 +1878,8 @@ function getLandingHTML() {
             setTimeout(() => {
                 modal.classList.add('hidden');
                 resetForms();
+                // UX: Restore clean URL when modal closes
+                window.history.replaceState({}, document.title, window.location.pathname);
             }, 300);
         }
 
