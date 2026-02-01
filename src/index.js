@@ -1688,6 +1688,36 @@ function getLandingHTML() {
                     Join Kurate!
                 </button>
             </div>
+
+            <!-- Extension Download Links -->
+            <div class="mt-12 pt-8 border-t border-gray-100 flex flex-wrap gap-12 items-center">
+                <a href="https://chrome.google.com/webstore/detail/kurate/akbifaapjhdkeknembooeihedinecbfi" target="_blank" class="group flex items-center gap-3 transition-all duration-300">
+                    <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center p-1.5 group-hover:bg-orange-50 transition-colors">
+                        <svg viewBox="0 0 24 24" class="w-full h-full">
+                            <path d="M12 0C18.6274 0 24 5.37258 24 12C24 18.6274 18.6274 24 12 24C5.37258 24 0 18.6274 0 12C0 5.37258 5.37258 0 12 0ZM12 6C8.68629 6 6 8.68629 6 12C6 15.3137 8.68629 18 12 18C15.3137 18 18 15.3137 18 12C18 10.3431 16.6569 9 15 9V0C14.0374 0 13.0625 0.20625 12.1875 0.5625L7.5 7.5C6.5625 8.4375 6 9.71875 6 11.25" fill="#EA4335" />
+                            <path d="M12 24L16.5 16.5C17.4375 15.5625 18 14.2812 18 12.75C18 11.9375 17.7812 11.1562 17.4062 10.5L13.5 3.75L12 3.75C7.4375 3.75 3.625 6.34375 1.625 10.125C1.3125 10.9688 1.125 11.8438 1.125 12.75C1.125 14.0625 1.3125 15.3125 1.625 16.5" fill="#FBBC05" />
+                            <path d="M4.5 9L0.625 15.75C2.84375 18.0312 6 19.4375 9.5625 19.4375C12.75 19.4375 15.6562 18.3125 17.9062 16.4375L11.25 5.0625H11.0625C9.53125 5.0625 8.25 5.625 7.3125 6.5625" fill="#34A853" />
+                            <path d="M12 5.625C13.4375 5.625 14.7188 6.09375 15.75 6.875L18.75 3.875C16.9062 2.15625 14.5312 1.125 12 1.125C7.4375 1.125 3.53125 3.71875 1.625 7.5L5.5 10.8438C6.375 7.84375 9.03125 5.625 12 5.625Z" fill="#EA4335" />
+                        </svg>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Available on</span>
+                        <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Kurate on Chrome</span>
+                    </div>
+                </a>
+
+                <a href="https://addons.mozilla.org/en-US/firefox/addon/kurate/" target="_blank" class="group flex items-center gap-3 transition-all duration-300">
+                    <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center p-1.5 group-hover:bg-orange-50 transition-colors">
+                        <svg viewBox="0 0 24 24" class="w-full h-full">
+                            <path d="M22.95 9.17c-.38-.95-1.05-1.85-1.95-2.67.65.62 1.15 1.35 1.48 2.16-.62-.57-1.33-.99-2.09-1.25.13.43.2.88.2 1.34 0 1.25-.48 2.4-1.28 3.28-1-.88-2.31-1.42-3.75-1.42s-2.75.54-3.75 1.42c-.8-.88-1.28-2.03-1.28-3.28 0-.46.07-.91.2-1.34-.76.26-1.47.68-2.09 1.25.33-.81.83-1.54 1.48-2.16-.9.82-1.57 1.72-1.95 2.67-.13.33-.23.66-.3 1-.88-.41-1.85-.64-2.88-.64C3.17 7.52 1.5 9.19 1.5 11.25s1.67 3.73 3.73 3.73c1.03 0 2-.23 2.88-.64.07.34.17.67.3 1 .38.95 1.05 1.85 1.95 2.67-.65-.62-1.15-1.35-1.48-2.16.62.57 1.33.99 2.09 1.25-.13-.43-.2-.88-.2-1.34 0-1.25.48-2.4 1.28-3.28 1 .88 2.31 1.42 3.75 1.42s2.75-.54 3.75-1.42c.8.88 1.28 3.28 1.28 3.28 0 .46-.07.91-.2 1.34.76-.26 1.47-.68 2.09-1.25-.33.81-.83-1.54-1.48-2.16.9-.82 1.57-1.72 1.95-2.67.13-.33.23-.66.3-1 .88.41 1.85.64 2.88.64 2.06 0 3.73-1.67 3.73-3.73s-1.67-3.73-3.73-3.73c-1.03 0-2 .23-2.88.64-.07-.34-.17-.67-.3-1z" fill="#FF7139"/>
+                        </svg>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Available on</span>
+                        <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Kurate on Firefox</span>
+                    </div>
+                </a>
+            </div>
         </div>
 
         <!-- Right Visual -->
