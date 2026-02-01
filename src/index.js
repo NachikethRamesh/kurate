@@ -1614,7 +1614,23 @@ function getLandingHTML() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kurate - For the curious</title>
+    <meta name="description" content="Your personal library of ideas from across the web. You are the curator.">
     <link rel="icon" type="image/png" href="/favicon.png?v=2">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://kurate.net/">
+    <meta property="og:title" content="Kurate - For the curious">
+    <meta property="og:description" content="Your personal library of ideas from across the web. You are the curator.">
+    <meta property="og:image" content="https://kurate.net/og-image.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://kurate.net/">
+    <meta property="twitter:title" content="Kurate - For the curious">
+    <meta property="twitter:description" content="Your personal library of ideas from across the web. You are the curator.">
+    <meta property="twitter:image" content="https://kurate.net/og-image.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
