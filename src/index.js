@@ -676,7 +676,7 @@ body {
 }
 
 .empty-title {
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-size: 24px;
     color: var(--text-main);
     margin-bottom: 12px;
@@ -706,7 +706,7 @@ body {
 
 .link-title {
     margin-bottom: 6px;
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-size: 18px;
     font-weight: 600;
 }
