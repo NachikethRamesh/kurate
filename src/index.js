@@ -1720,6 +1720,15 @@ function getLandingHTML() {
 
     </main>
 
+    <!-- Simple Footer -->
+    <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 mt-12 flex justify-between items-center text-sm text-gray-400">
+        <div>© 2026 Kurate. All rights reserved.</div>
+        <div class="flex gap-6">
+            <a href="#" onclick="event.preventDefault(); openPrivacyModal()" class="hover:text-gray-600 transition-colors">Privacy Policy</a>
+            <a href="mailto:hello@kurate.net" class="hover:text-gray-600 transition-colors">Contact</a>
+        </div>
+    </footer>
+
     <!-- Preload Fonts to prevent FOUT layout shift -->
     <script>
         document.fonts.ready.then(() => {
@@ -1835,6 +1844,34 @@ function getLandingHTML() {
         </div>
     </div>
 
+    <!-- Privacy Modal -->
+    <div id="privacyModal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closePrivacyModal()"></div>
+        <div class="relative min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl p-10 relative transform scale-95 transition-all duration-300 translate-y-4 max-h-[80vh] overflow-y-auto">
+                <button onclick="closePrivacyModal()" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <div class="prose prose-slate max-w-none">
+                    <h2 class="text-3xl font-serif text-[#1C1917] mb-6">Privacy Policy</h2>
+                    <p class="text-gray-600 mb-4">Last Updated: February 2026</p>
+                    
+                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">1. Information We Collect</h3>
+                    <p class="text-gray-600 mb-4">Kurate is designed to be a personal curation tool. We collect your username to manage your personal library. When you use the Kurate extension, we save the titles, URLs, and categories of the links you explicitly choose to save.</p>
+                    
+                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">2. How We Use Information</h3>
+                    <p class="text-gray-600 mb-4">Your data is strictly used to provide the link-saving service. We do not track your browsing history and only access data when the extension is activated by you.</p>
+                    
+                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">3. Data Storage</h3>
+                    <p class="text-gray-600 mb-4">Your bookmarks are stored securely on our cloud servers. The browser extension stores your authentication token locally to maintain your session.</p>
+                    
+                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">4. Sharing</h3>
+                    <p class="text-gray-600 mb-4">We do not sell, trade, or share your personal information with third parties.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let isLoginMode = true;
 
@@ -1875,6 +1912,30 @@ function getLandingHTML() {
                 modal.classList.add('hidden');
                 resetForms();
                 // UX: Restore clean URL when modal closes
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }, 300);
+        }
+
+        function openPrivacyModal() {
+            const modal = document.getElementById('privacyModal');
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0');
+            modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
+            modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
+            window.history.pushState({}, document.title, window.location.pathname + '?p=privacy');
+        }
+
+        function closePrivacyModal() {
+            const modal = document.getElementById('privacyModal');
+            modal.classList.add('opacity-0');
+            const content = modal.querySelector('div[class*="scale-100"]');
+            if(content) {
+                content.classList.remove('scale-100', 'translate-y-0');
+                content.classList.add('scale-95', 'translate-y-4');
+            }
+            setTimeout(() => {
+                modal.classList.add('hidden');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }, 300);
         }
@@ -2022,6 +2083,11 @@ function getLandingHTML() {
                 if (typeof openAuthModal === 'function') openAuthModal();
                 // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
+            }
+            
+            // Handle Privacy Policy direct link
+            if (params.get('p') === 'privacy') {
+                if (typeof openPrivacyModal === 'function') openPrivacyModal();
             }
         };
         checkAutoSignup();
