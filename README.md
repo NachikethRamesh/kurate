@@ -13,6 +13,7 @@ A secure, full-stack link sharing application with user authentication, cloud sy
 ### Browser Extensions (Chrome & Firefox)
 - **Manifest V3**: State-of-the-art extension architecture
 - **Popup UI**: Minimalist design echoing the landing page aesthetic
+- **Branding**: High-fidelity, vibrant SVG logos for Chrome and Firefox store visibility.
 - **Communication**: Directly interfaces with the Kurate API for seamless saving
 
 ## 🚀 Quick Start (Web App)
@@ -36,6 +37,7 @@ Kurate includes official extensions for **Chrome** and **Firefox** to allow one-
 - **Instant Save**: Capture any page URL and Title instantly.
 - **On-the-fly Categorization**: Choose categories (Technology, Business, etc.) directly in the popup.
 - **Persistent Login**: Securely stores your auth token for a seamless experience.
+- **Store Optimized**: Pre-configured with official store descriptions, screenshots, and privacy justifications.
 
 ### Packaging for Store Submission:
 To create the `kurate-extension.zip` for store submission:
@@ -72,11 +74,11 @@ python -c "import zipfile, os; arch = zipfile.ZipFile('kurate-extension.zip', 'w
 
 ## 🎨 Features
 
-- ✅ **Cross-Platform Curation** - Chrome & Firefox extensions.
+- ✅ **Cross-Platform Curation** - Dedicated Chrome & Firefox extensions.
+- ✅ **Vibrant Branding** - Integrated official store logos for high trust.
 - ✅ **Secure Authentication** - Modern JWT-based flow.
 - ✅ **Link Management** - Add, edit, delete, and categorize links.
-- ✅ **Premium UI** - Minimalist, modern design with smooth animations.
-- ✅ **Mobile Responsive** - Optimized for all screen sizes.
+- ✅ **Premium UI** - Minimalist design with smooth, reactive transitions.
 - ✅ **Cloud Sync** - Powered by Cloudflare D1 for high availability.
 
 ---

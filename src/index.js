@@ -1693,12 +1693,7 @@ function getLandingHTML() {
             <div class="mt-12 pt-8 border-t border-gray-100 flex flex-wrap gap-12 items-center">
                 <a href="https://chrome.google.com/webstore/detail/kurate/akbifaapjhdkeknembooeihedinecbfi" target="_blank" class="group flex items-center gap-3 transition-all duration-300">
                     <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center p-1.5 group-hover:bg-orange-50 transition-colors">
-                        <svg viewBox="0 0 24 24" class="w-full h-full">
-                            <path fill="#4285F4" d="M12 7.5a4.5 4.5 0 1 0 4.5 4.5A4.5 4.5 0 0 0 12 7.5z"/>
-                            <path fill="#34A853" d="M12 0a12 12 0 0 0-9.27 4.38L6.43 11a5.62 5.62 0 0 1 5.57-5h9.72A12 12 0 0 0 12 0z"/>
-                            <path fill="#FBBC05" d="M2.73 4.38a12 12 0 0 0 0 15.24l3.7-6.41a5.62 5.62 0 0 1 0-2.42z"/>
-                            <path fill="#EA4335" d="M12 24a12 12 0 0 0 9.27-4.38l-3.7-6.41a5.62 5.62 0 0 1-5.57 5H2.28A12 12 0 0 0 12 24z"/>
-                        </svg>
+                        <img src="/Google_Chrome_icon_(February_2022).svg.webp" alt="Chrome Logo" class="w-full h-full object-contain">
                     </div>
                     <div class="flex flex-col">
                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Available on</span>
@@ -1708,10 +1703,7 @@ function getLandingHTML() {
 
                 <a href="https://addons.mozilla.org/en-US/firefox/addon/kurate/" target="_blank" class="group flex items-center gap-3 transition-all duration-300">
                     <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center p-1.5 group-hover:bg-orange-50 transition-colors">
-                        <svg viewBox="0 0 24 24" class="w-full h-full">
-                            <path d="M23.63 7.82c-.34-1.12-.9-2.18-1.66-3.13.56.54.98 1.18 1.27 1.88-.53-.49-1.14-.86-1.79-1.07.11.37.17.75.17 1.15 0 1.07-.41 2.05-1.1 2.8-.85-.75-1.97-1.21-3.21-1.21s-2.36.46-3.21 1.21c-.69-.75-1.1-1.73-1.1-2.8 0-.4.06-.78.17-1.15-.65.21-1.26.58-1.79 1.07.29-.7.71-1.34 1.27-1.88-.77.7-1.34 1.48-1.66 2.29-.11.28-.2.56-.26.85-.75-.35-1.58-.55-2.46-.55C3.71 6.43 2.29 7.85 2.29 9.61s1.42 3.19 3.19 3.19c.88 0 1.71-.2 2.46-.55.06.29.15.57.26.85.32.81.89 1.59 1.66 2.29-.56-.54-.98-1.18-1.27-1.88.53.49 1.14.86 1.79 1.07-.11.37-.17.75-.17 1.15 0 1.07.41 2.05 1.1 2.8.85.75 1.97 1.21 3.21 1.21s2.36-.46 3.21-1.21c.69-.75 1.1-1.73 1.1-2.8 0-.4-.06-.78-.17-1.15.65-.21 1.26-.58 1.79-1.07-.29.7-.71 1.34-1.27 1.88.77-.7 1.34-1.48 1.66-2.29.11-.28.2-.56.26-.85.75.35 1.58.55 2.46.55 1.77 0 3.19-1.42 3.19-3.19s-1.42-3.19-3.19-3.19c-.88 0-1.71.2-2.46.55.06-.29.15-.57.26-.85z" fill="#E66000"/>
-                            <path d="M12.03 16.27c2.31 0 4.19-1.88 4.19-4.19s-1.88-4.19-4.19-4.19-4.19 1.88-4.19 4.19 1.88 4.19 4.19 4.19z" fill="#0060DF"/>
-                        </svg>
+                        <img src="/Firefox_logo,_2019.svg.png" alt="Firefox Logo" class="w-full h-full object-contain">
                     </div>
                     <div class="flex flex-col">
                         <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Available on</span>
