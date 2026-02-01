@@ -1690,25 +1690,21 @@ function getLandingHTML() {
             </div>
 
             <!-- Extension Download Links -->
-            <div class="mt-12 pt-8 border-t border-gray-100 flex flex-wrap gap-12 items-center">
-                <a href="https://chrome.google.com/webstore/detail/kurate/akbifaapjhdkeknembooeihedinecbfi" target="_blank" class="group flex items-center gap-3 transition-all duration-300">
-                    <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center p-1.5 group-hover:bg-orange-50 transition-colors">
+            <div class="mt-12 pt-8 border-t border-gray-100 flex flex-wrap gap-4 items-center">
+                <a href="https://chrome.google.com/webstore/detail/kurate/akbifaapjhdkeknembooeihedinecbfi" target="_blank" 
+                    class="group flex items-center gap-3 px-6 py-4 bg-white rounded-[24px] border border-[#F5F5F5] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-300">
+                    <div class="w-8 h-8 flex items-center justify-center">
                         <img src="/Google_Chrome_icon_(February_2022).svg.webp" alt="Chrome Logo" class="w-full h-full object-contain">
                     </div>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Available on</span>
-                        <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Kurate on Chrome</span>
-                    </div>
+                    <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Chrome Extension</span>
                 </a>
 
-                <a href="https://addons.mozilla.org/en-US/firefox/addon/kurate/" target="_blank" class="group flex items-center gap-3 transition-all duration-300">
-                    <div class="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center p-1.5 group-hover:bg-orange-50 transition-colors">
+                <a href="https://addons.mozilla.org/en-US/firefox/addon/kurate/" target="_blank" 
+                    class="group flex items-center gap-3 px-6 py-4 bg-white rounded-[24px] border border-[#F5F5F5] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-300">
+                    <div class="w-8 h-8 flex items-center justify-center">
                         <img src="/Firefox_logo,_2019.svg.png" alt="Firefox Logo" class="w-full h-full object-contain">
                     </div>
-                    <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Available on</span>
-                        <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Kurate on Firefox</span>
-                    </div>
+                    <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Firefox Extension</span>
                 </a>
             </div>
         </div>
