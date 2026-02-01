@@ -8,7 +8,12 @@ chrome.runtime.onInstalled.addListener(() => {
 // Optional: Add keyboard shortcut handler
 chrome.commands?.onCommand?.addListener((command) => {
     if (command === 'save-link') {
-        chrome.action.openPopup();
+        // chrome.action.openPopup() is not supported in Firefox yet
+        if (typeof chrome.action.openPopup === 'function') {
+            chrome.action.openPopup();
+        } else {
+            console.log('openPopup not supported on this browser');
+        }
     }
 });
 
@@ -21,6 +26,12 @@ chrome.contextMenus?.create({
 
 chrome.contextMenus?.onClicked?.addListener((info, tab) => {
     if (info.menuItemId === 'save-to-kurate') {
-        chrome.action.openPopup();
+        if (typeof chrome.action.openPopup === 'function') {
+            chrome.action.openPopup();
+        } else {
+            console.log('openPopup not supported on this browser');
+            // Fallback for Firefox: open the home page or a tab
+            chrome.tabs.create({ url: 'https://kurate.net/home' });
+        }
     }
 });

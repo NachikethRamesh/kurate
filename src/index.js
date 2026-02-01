@@ -1994,6 +1994,19 @@ function getLandingHTML() {
             }
         }
         
+        // Check for auto-signup action from extension (immediate execution)
+        const checkAutoSignup = () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('action') === 'signup') {
+                isLoginMode = false;
+                if (typeof updateAuthUI === 'function') updateAuthUI();
+                if (typeof openAuthModal === 'function') openAuthModal();
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        };
+        checkAutoSignup();
+
         // Close modal on escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeAuthModal();

@@ -28,7 +28,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupCustomDropdown();
     setupLogoLink();
+    setupErrorHandlers();
 });
+
+// UX: Clear error messages when user takes action
+function setupErrorHandlers() {
+    const loginInputs = ['username', 'password'];
+    loginInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => {
+                const errorEl = document.getElementById('loginError');
+                if (errorEl) {
+                    errorEl.textContent = '';
+                    errorEl.classList.add('hidden');
+                }
+            });
+        }
+    });
+
+    const titleInput = document.getElementById('title');
+    if (titleInput) {
+        titleInput.addEventListener('input', () => {
+            const statusEl = document.getElementById('saveStatus');
+            if (statusEl) {
+                statusEl.textContent = '';
+                statusEl.classList.remove('error', 'success');
+            }
+        });
+    }
+}
 
 // Logo Click Logic
 function setupLogoLink() {
@@ -65,6 +94,13 @@ function setupCustomDropdown() {
             // Close dropdown
             dropdownTrigger.classList.remove('active');
             dropdownOptions.classList.remove('active');
+
+            // UX: Clear error when category is selected
+            const statusEl = document.getElementById('saveStatus');
+            if (statusEl) {
+                statusEl.textContent = '';
+                statusEl.classList.remove('error', 'success');
+            }
         });
     });
 
@@ -122,6 +158,12 @@ if (loginForm) {
                 errorEl.classList.add('hidden');
                 await showSaveView();
             } else {
+                // UX: If user not found, auto-redirect to sign-up on website
+                if (data.error === 'User not found') {
+                    chrome.tabs.create({ url: 'https://kurate.net?action=signup' });
+                    window.close();
+                    return;
+                }
                 errorEl.textContent = data.error || 'Login failed';
                 errorEl.classList.remove('hidden');
             }
@@ -130,6 +172,16 @@ if (loginForm) {
             errorEl.classList.remove('hidden');
         }
     });
+
+    // Manual Join Link
+    const joinLink = document.getElementById('joinLink');
+    if (joinLink) {
+        joinLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            chrome.tabs.create({ url: 'https://kurate.net?action=signup' });
+            window.close();
+        });
+    }
 }
 
 if (logoutBtn) {
