@@ -1568,8 +1568,7 @@ function getLandingHTML() {
 
                     <!-- Overlay Text -->
                     <div class="absolute bottom-6 left-6 z-10">
-                        <h3 class="font-serif text-white text-3xl italic tracking-wide drop-shadow-md">"Minimalist
-                            Living"</h3>
+                        <h3 class="font-serif text-white text-2xl italic tracking-wide drop-shadow-md">"Kurate. For the curious"</h3>
                     </div>
 
                     <!-- Gradient Overlay for text readability -->
