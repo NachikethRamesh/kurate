@@ -709,6 +709,15 @@ body {
     font-family: var(--font-sans);
     font-size: 18px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.external-icon {
+    color: var(--text-light);
+    opacity: 0.5;
+    flex-shrink: 0;
 }
 
 .link-title a { color: var(--text-main); text-decoration: none; }
@@ -725,11 +734,10 @@ body {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-light);
-    border: 1px solid var(--border-strong);
+    color: #D84315;
+    background: #FFE8E1;
     padding: 4px 8px;
     border-radius: 6px;
-    background: transparent;
 }
 
 .link-date { font-size: 12px; color: var(--text-light); }
@@ -1333,12 +1341,17 @@ class LinksApp {
                 <div class="link-content">
                     <h3 class="link-title">
                         <a href="\${link.url}" target="_blank" rel="noopener noreferrer">\${link.title}</a>
+                        <svg class="external-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
                         \${link.isPending ? '<span class="pending-indicator">Saving...</span>' : ''}
                     </h3>
                     <div class="link-meta">
                         <span class="link-category">\${link.category || 'general'}</span>
+                        <span class="link-date">Added \${new Date(link.dateAdded).toLocaleDateString()}</span>
                     </div>
-                    <p class="link-date">Added \${new Date(link.dateAdded).toLocaleDateString()}</p>
                 </div>
                 <div class="link-actions">
                     <button class="star-icon \${link.isFavorite ? 'favorite' : ''}"
