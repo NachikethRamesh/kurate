@@ -1660,7 +1660,7 @@ function getLandingHTML() {
     </nav>
 
     <!-- Main Content -->
-    <main class="flex flex-col lg:flex-row items-center justify-between max-w-7xl mx-auto px-8 py-8 lg:py-12 gap-16">
+    <main class="flex flex-col lg:flex-row items-center justify-between max-w-7xl mx-auto px-8 pt-8 lg:pt-12 pb-0 gap-16">
 
         <!-- Left Text -->
         <div class="lg:w-3/5 max-w-3xl">
@@ -1740,7 +1740,7 @@ function getLandingHTML() {
     </main>
 
     <!-- Simple Footer -->
-    <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 mt-12 flex flex-col sm:flex-row justify-between items-center gap-6 text-sm text-gray-400">
+    <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-6 text-sm text-gray-400">
         <div class="flex flex-col sm:flex-row items-center gap-6">
             <span>© 2026 Kurate. All rights reserved.</span>
             <a href="#" onclick="event.preventDefault(); openPrivacyModal()" class="hover:text-gray-600 transition-colors">Privacy Policy</a>
