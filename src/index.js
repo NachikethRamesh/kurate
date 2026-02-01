@@ -805,6 +805,19 @@ class LinksApp {
             return;
         }
         
+        // Extract user info from token
+        try {
+            const tokenData = JSON.parse(atob(this.token));
+            if (tokenData && tokenData.username) {
+                this.currentUser = { username: tokenData.username };
+            }
+        } catch (e) {
+            localStorage.removeItem('authToken');
+            this.token = null;
+            window.location.href = '/';
+            return;
+        }
+        
         this.setupEventListeners();
         this.showMainApp();
         this.loadLinks();
