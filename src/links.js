@@ -1,7 +1,7 @@
-import { 
-  getUserLinks, 
-  createLink, 
-  deleteLink, 
+import {
+  getUserLinks,
+  createLink,
+  deleteLink,
   markLinkAsRead,
   toggleFavorite
 } from './database.js';
@@ -16,7 +16,7 @@ export async function handleLinks(request, env) {
   // Validate authorization
   const authHeader = request.headers.get('Authorization');
   const tokenData = validateToken(authHeader);
-  
+
   if (!tokenData) {
     return createErrorResponse('Authorization required', 401);
   }
@@ -27,14 +27,15 @@ export async function handleLinks(request, env) {
     // Get user's links from D1
     try {
       const result = await getUserLinks(env.DB, userId);
-      
+
       if (!result.success) {
         return createErrorResponse(result.error || 'Failed to fetch links', 500);
       }
 
       return createResponse({
         success: true,
-        links: result.links
+        links: result.links,
+        debug: { queriedUserId: userId, username: username }
       });
 
     } catch (error) {
@@ -123,7 +124,7 @@ export async function handleMarkRead(request, env) {
     try {
       const authHeader = request.headers.get('Authorization');
       const tokenData = validateToken(authHeader);
-      
+
       if (!tokenData) {
         return createErrorResponse('Authorization required', 401);
       }
@@ -168,7 +169,7 @@ export async function handleToggleFavorite(request, env) {
       // Validate authorization
       const authHeader = request.headers.get('Authorization');
       const tokenData = validateToken(authHeader);
-      
+
       if (!tokenData) {
         return createErrorResponse('Authorization required', 401);
       }

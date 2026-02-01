@@ -611,7 +611,7 @@ body {
 
 .content-title {
     font-family: var(--font-sans);
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 700;
     color: var(--text-main);
 }
