@@ -1656,10 +1656,6 @@ function getLandingHTML() {
                 class="px-6 py-2.5 bg-[#1C1917] text-white rounded-full text-base font-medium hover:bg-[#D94E28] transition-colors">
                 Start Curating →
             </button>
-            <button onclick="openSignupModal()"
-                class="px-6 py-2.5 bg-[#D94E28] text-white rounded-full text-base font-medium hover:bg-[#B73D1E] transition-colors">
-                Join Kurate!
-            </button>
         </div>
     </nav>
 
@@ -1669,7 +1665,7 @@ function getLandingHTML() {
         <!-- Left Text -->
         <div class="lg:w-3/5 max-w-3xl">
             <h1 class="text-4xl lg:text-5xl leading-tight font-serif text-[#1C1917] mb-8 tracking-tight">
-                Your personal library of the best ideas you find online.<br>
+                Your personal library of ideas from across the web.<br>
                 <span class="text-[#D94E28]">You are the curator.</span>
             </h1>
 
