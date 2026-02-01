@@ -1620,9 +1620,14 @@ function getLandingHTML() {
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://kurate.net/">
+    <meta property="og:site_name" content="Kurate">
     <meta property="og:title" content="Kurate - For the curious">
     <meta property="og:description" content="Your personal library of ideas from across the web. You are the curator.">
     <meta property="og:image" content="https://kurate.net/og-image.png">
+    <meta property="og:image:secure_url" content="https://kurate.net/og-image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
