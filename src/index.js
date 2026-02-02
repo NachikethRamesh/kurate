@@ -177,8 +177,8 @@ function getIndexHTML() {
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>Kurate</title>
-    <meta name="description" content="Save and organize your links with Kurate">
+    <title>kurate</title>
+    <meta name="description" content="Save and organize your links with kurate">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="/favicon.png?v=2">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -193,7 +193,7 @@ function getIndexHTML() {
             <div class="header-content">
                 <div class="logo-container">
                     <div class="logo-circle-icon">★</div>
-                    <span class="logo-text">kurate.</span>
+                    <span class="logo-text">kurate</span>
                 </div>
                 <button id="logoutBtn" class="logout-btn">Log out</button>
             </div>
@@ -298,7 +298,7 @@ function getIndexHTML() {
 }
 
 function getStylesCSS() {
-    return `/* Kurate - Warm Minimalist Design */
+    return `/* kurate - Warm Minimalist Design */
 :root {
     --bg-warm: #FDFAF8;
     --primary-orange: #D94E28;
@@ -478,7 +478,7 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--text-light);
+    color: #000000;
     margin-bottom: 8px;
 }
 
@@ -1466,29 +1466,25 @@ class LinksApp {
                 <div class="link-content">
                     <h3 class="link-title">
                         <a href="\${link.url}" target="_blank" rel="noopener noreferrer">\${link.title}</a>
-                        <svg class="external-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                            <polyline points="15 3 21 3 21 9"/>
-                            <line x1="10" y1="14" x2="21" y2="3"/>
-                        </svg>
+
                         \${link.isPending ? '<span class="pending-indicator">Saving...</span>' : ''}
                     </h3>
                     <div class="link-meta">
                         <span class="link-category">\${link.category || 'general'}</span>
-                        <span class="link-date">Added \${new Date(link.dateAdded).toLocaleDateString()}</span>
                     </div>
                 </div>
                 <div class="link-actions">
-                    <button class="star-icon \${link.isFavorite ? 'favorite' : ''}"
-                            onclick="app.toggleFavorite('\${link.id}', \${!link.isFavorite})"
-                            title="\${link.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">★</button>
-                    \${this.currentTab === 'unread' || (this.currentTab === 'favorites' && (!link.isRead || link.isRead === 0)) ? \`<button class="action-btn mark-read" onclick="app.markAsRead('\${link.id}')" title="Mark as read">Mark as read</button>\` : ''}
+                    \${this.currentTab === 'unread' || (this.currentTab === 'favorites' && (!link.isRead || link.isRead === 0)) ? \`<button class="action-btn mark-read" onclick="app.markAsRead('\${link.id}', true)" title="Mark as read">Mark as read</button>\` : ''}
+                    \${this.currentTab === 'read' ? \`<button class="action-btn mark-unread" onclick="app.markAsRead('\${link.id}', false)" title="Mark as unread">Mark as unread</button>\` : ''}
                     <button class="action-btn copy-btn" onclick="app.copyLink('\${link.url}')" title="Copy link" \${link.isPending ? 'disabled' : ''}>
                         Copy
                     </button>
                     <button class="action-btn delete-btn" onclick="app.deleteLink('\${link.id}')" title="Delete link" \${link.isPending ? 'disabled' : ''}>
                         Delete
                     </button>
+                    <button class="star-icon \${link.isFavorite ? 'favorite' : ''}"
+                            onclick="app.toggleFavorite('\${link.id}', \${!link.isFavorite})"
+                            title="\${link.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">★</button>
                 </div>
             </div>
         \`).join('');
@@ -1537,18 +1533,18 @@ class LinksApp {
         this.renderLinks();
     }
 
-    async markAsRead(linkId) {
+    async markAsRead(linkId, isRead = true) {
         this.showStatus('Updating...', 'info');
 
         try {
             await this.apiRequest('/links/mark-read', {
                 method: 'POST',
-                body: JSON.stringify({ linkId, isRead: 1 })
+                body: JSON.stringify({ linkId, isRead: isRead ? 1 : 0 })
             });
-            this.showStatus('Marked as read', 'success');
+            this.showStatus(isRead ? 'Marked as read' : 'Marked as unread', 'success');
             await this.loadLinks(true);
         } catch (error) {
-            this.showStatus('Marked as read', 'success');
+            this.showStatus(isRead ? 'Marked as read' : 'Marked as unread', 'success');
             await this.loadLinks(true);
         }
     }
@@ -1613,15 +1609,15 @@ function getLandingHTML() {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kurate - For the curious</title>
+    <title>kurate - For the curious</title>
     <meta name="description" content="Your personal library of ideas from across the web. You are the curator.">
     <link rel="icon" type="image/png" href="/favicon.png?v=2">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://kurate.net/">
-    <meta property="og:site_name" content="Kurate">
-    <meta property="og:title" content="Kurate - For the curious">
+    <meta property="og:site_name" content="kurate">
+    <meta property="og:title" content="kurate - For the curious">
     <meta property="og:description" content="Your personal library of ideas from across the web. You are the curator.">
     <meta property="og:image" content="https://kurate.net/og-image.png">
     <meta property="og:image:secure_url" content="https://kurate.net/og-image.png">
@@ -1632,7 +1628,7 @@ function getLandingHTML() {
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://kurate.net/">
-    <meta property="twitter:title" content="Kurate - For the curious">
+    <meta property="twitter:title" content="kurate - For the curious">
     <meta property="twitter:description" content="Your personal library of ideas from across the web. You are the curator.">
     <meta property="twitter:image" content="https://kurate.net/og-image.png">
 
@@ -1670,13 +1666,10 @@ function getLandingHTML() {
             <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs">
                 ★
             </div>
-            <span class="font-bold text-2xl tracking-tight">kurate.</span>
+            <span class="font-bold text-2xl tracking-tight">kurate</span>
         </div>
         <div class="flex items-center gap-4">
-            <button onclick="openAuthModal()"
-                class="px-6 py-2.5 bg-[#1C1917] text-white rounded-full text-base font-medium hover:bg-[#D94E28] transition-colors">
-                Start Curating →
-            </button>
+
         </div>
     </nav>
 
@@ -1687,11 +1680,11 @@ function getLandingHTML() {
         <div class="lg:w-3/5 max-w-3xl">
             <h1 class="text-4xl lg:text-5xl leading-tight font-serif text-[#1C1917] mb-8 tracking-tight">
                 Your personal library of ideas from across the web.<br>
-                <span class="text-[#D94E28]">You are the curator.</span>
+                <span class="text-[#D94E28]">You are curator.</span>
             </h1>
 
             <p class="text-lg text-gray-600 leading-relaxed max-w-2xl mb-10">
-                <span class="font-bold italic">Kurate</span> is your personal library for collecting and organizing the
+                <span class="font-bold italic">kurate</span> is your personal library for collecting and organizing the
                 best content from across
                 the
                 web.<br><br>
@@ -1706,7 +1699,7 @@ function getLandingHTML() {
                 </button>
                 <button onclick="openSignupModal()"
                     class="group bg-[#D94E28] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#B73D1E] transition-all duration-300 flex items-center gap-2">
-                    Join Kurate!
+                    Join kurate!
                 </button>
             </div>
 
@@ -1742,7 +1735,7 @@ function getLandingHTML() {
 
                     <!-- Overlay Text -->
                     <div class="absolute bottom-6 left-6 z-10">
-                        <h3 class="font-serif text-white text-2xl italic tracking-wide drop-shadow-md">"Kurate. For the curious"</h3>
+                        <h3 class="font-serif text-white text-2xl italic tracking-wide drop-shadow-md">"kurate - For the curious"</h3>
                     </div>
 
                     <!-- Gradient Overlay for text readability -->
@@ -1763,10 +1756,10 @@ function getLandingHTML() {
     <!-- Simple Footer -->
     <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-6 text-sm text-gray-400">
         <div class="flex flex-col sm:flex-row items-center gap-6">
-            <span>© 2026 Kurate. All rights reserved.</span>
+            <span>© 2026 kurate. All rights reserved.</span>
             <a href="#" onclick="event.preventDefault(); openPrivacyModal()" class="hover:text-gray-600 transition-colors">Privacy Policy</a>
         </div>
-        <a href="mailto:contact@kurate.net" class="hover:text-gray-600 transition-colors">Contact</a>
+        <a href="#" onclick="event.preventDefault(); openContactModal()" class="hover:text-gray-600 transition-colors">Contact</a>
     </footer>
 
     <!-- Preload Fonts to prevent FOUT layout shift -->
@@ -1888,25 +1881,56 @@ function getLandingHTML() {
     <div id="privacyModal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closePrivacyModal()"></div>
         <div class="relative min-h-screen flex items-center justify-center p-4">
-            <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl p-10 relative transform scale-95 transition-all duration-300 translate-y-4 max-h-[80vh] overflow-y-auto">
-                <button onclick="closePrivacyModal()" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
+            <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col relative transform scale-95 transition-all duration-300 translate-y-4">
+                <div class="p-10 pb-4 shrink-0 flex justify-between items-start">
+                     <h2 class="text-3xl font-bold text-[#1C1917]">Privacy Policy</h2>
+                     <button onclick="closePrivacyModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                
+                <div class="p-10 pt-0 overflow-y-auto flex-1 custom-scrollbar">
+                    <div class="font-sans max-w-none">
+                        <p class="text-gray-600 mb-4">Last Updated: February 2026</p>
+                        
+                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">1. Information We Collect</h3>
+                        <p class="text-gray-600 mb-4">kurate is designed to be a personal curation tool. We collect your username to manage your personal library. When you use the kurate extension, we save the titles, URLs, and categories of the links you explicitly choose to save.</p>
+                        
+                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">2. How We Use Information</h3>
+                        <p class="text-gray-600 mb-4">Your data is strictly used to provide the link-saving service. We do not track your browsing history and only access data when the extension is activated by you.</p>
+                        
+                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">3. Data Storage</h3>
+                        <p class="text-gray-600 mb-4">Your bookmarks are stored securely on our cloud servers. The browser extension stores your authentication token locally to maintain your session.</p>
+                        
+                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">4. Sharing</h3>
+                        <p class="text-gray-600 mb-4">We do not sell, trade, or share your personal information with third parties.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Modal -->
+    <div id="contactModal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeContactModal()"></div>
+        <div class="relative min-h-screen flex items-center justify-center p-4">
+            <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 relative transform scale-95 transition-all duration-300 translate-y-4">
+                 <button onclick="closeContactModal()" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
-                <div class="prose prose-slate max-w-none">
-                    <h2 class="text-3xl font-serif text-[#1C1917] mb-6">Privacy Policy</h2>
-                    <p class="text-gray-600 mb-4">Last Updated: February 2026</p>
+                
+                <div class="text-center pt-4 pb-8 font-sans">
+                    <div class="w-16 h-16 bg-orange-100 text-[#D94E28] rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-3xl font-bold text-[#1C1917] mb-2">Contact Us</h2>
+                    <p class="text-gray-500 mb-8">We'd love to hear from you</p>
                     
-                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">1. Information We Collect</h3>
-                    <p class="text-gray-600 mb-4">Kurate is designed to be a personal curation tool. We collect your username to manage your personal library. When you use the Kurate extension, we save the titles, URLs, and categories of the links you explicitly choose to save.</p>
-                    
-                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">2. How We Use Information</h3>
-                    <p class="text-gray-600 mb-4">Your data is strictly used to provide the link-saving service. We do not track your browsing history and only access data when the extension is activated by you.</p>
-                    
-                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">3. Data Storage</h3>
-                    <p class="text-gray-600 mb-4">Your bookmarks are stored securely on our cloud servers. The browser extension stores your authentication token locally to maintain your session.</p>
-                    
-                    <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">4. Sharing</h3>
-                    <p class="text-gray-600 mb-4">We do not sell, trade, or share your personal information with third parties.</p>
+                    <a class="inline-flex items-center gap-2 text-xl font-medium text-[#1C1917] hover:text-[#D94E28] transition-colors">
+                        contact@kurate.net
+                    </a>
                 </div>
             </div>
         </div>
@@ -1980,6 +2004,28 @@ function getLandingHTML() {
             }, 300);
         }
 
+        function openContactModal() {
+            const modal = document.getElementById('contactModal');
+            modal.classList.remove('hidden');
+            void modal.offsetWidth;
+            modal.classList.remove('opacity-0');
+            modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
+            modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
+        }
+
+        function closeContactModal() {
+            const modal = document.getElementById('contactModal');
+            modal.classList.add('opacity-0');
+            const content = modal.querySelector('div[class*="scale-100"]');
+            if(content) {
+                content.classList.remove('scale-100', 'translate-y-0');
+                content.classList.add('scale-95', 'translate-y-4');
+            }
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
         function resetForms() {
             document.getElementById('modalAuthForm').reset();
             document.getElementById('modalResetForm').reset();
@@ -2027,11 +2073,11 @@ function getLandingHTML() {
                 subtitle.textContent = '';
                 submitText.textContent = 'Sign In';
                 toggleText.textContent = "Don't have an account?";
-                toggleLink.textContent = 'Join Kurate';
+                toggleLink.textContent = 'Join kurate';
             } else {
-                title.textContent = 'Join Kurate';
+                title.textContent = 'Join kurate';
                 subtitle.textContent = '';
-                submitText.textContent = 'Join Kurate';
+                submitText.textContent = 'Join kurate';
                 toggleText.textContent = 'Already have an account?';
                 toggleLink.textContent = 'Sign in';
             }
@@ -2134,7 +2180,11 @@ function getLandingHTML() {
 
         // Close modal on escape key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeAuthModal();
+            if (e.key === 'Escape') {
+                closeAuthModal();
+                closePrivacyModal();
+                closeContactModal();
+            }
         });
     </script>
 </body>
