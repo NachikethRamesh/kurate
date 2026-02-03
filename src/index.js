@@ -199,7 +199,7 @@ function getIndexHTML() {
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>kurate</title>
+    <title>kurate - for the curious</title>
     <meta name="description" content="Save and organize your links with kurate">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="/favicon.png?v=2">
@@ -287,7 +287,7 @@ function getIndexHTML() {
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
-                        <input type="text" id="searchInput" class="search-input" placeholder="Search through your curated list...">
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search through your curated list..." autocomplete="off">
                     </div>
 
                     <section class="links-container">
@@ -310,7 +310,7 @@ function getIndexHTML() {
                         <form id="addLinkForm" class="add-link-form">
                             <div class="form-group">
                                 <label for="linkUrl" class="form-label">Link</label>
-                                <input type="url" id="linkUrl" class="form-input" placeholder="https://..." required>
+                                <input type="url" id="linkUrl" class="form-input" placeholder="https://..." required autocomplete="off">
                             </div>
                             
                              <div class="form-group">
@@ -419,7 +419,7 @@ function getStylesCSS() {
     --radius-sm: 8px;
     
     --sidebar-width-left: 216px;
-    --sidebar-width-right: 314px;
+    --sidebar-width-right: 280px;
 }
 
 * {
@@ -834,27 +834,27 @@ body {
 /* Right Sidebar */
 .sidebar-right .sidebar-card {
     background: #FAFAFA;
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 12px;
+    padding: 16px;
     border: 1px solid var(--border-light);
 }
 
 .sidebar-title-small {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     font-family: var(--font-sans);
     color: var(--text-primary);
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: 10px;
+    margin-bottom: 16px;
 }
 
 .add-link-form {
     background: transparent;
 }
 
-.form-group { margin-bottom: 20px; }
+.form-group { margin-bottom: 12px; }
 
 .form-group label {
     display: block;
@@ -869,12 +869,12 @@ body {
 
 .form-group input, .form-group select {
     width: 100%;
-    padding: 14px 16px;
+    padding: 10px 12px;
     background: #F8FAFC;
     border: 1px solid #CBD5E1;
-    border-radius: 12px;
+    border-radius: 8px;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-primary);
     transition: all 0.2s;
 }
@@ -930,13 +930,13 @@ body {
 .custom-select-trigger {
     background: #F8FAFC;
     border: 1px solid #CBD5E1;
-    border-radius: 12px;
-    padding: 11px 16px;
+    border-radius: 8px;
+    padding: 8px 12px;
     width: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-primary);
     cursor: pointer;
     transition: all 0.2s;
@@ -975,10 +975,10 @@ body {
     background: var(--accent-orange);
     color: white;
     border: none;
-    padding: 14px;
+    padding: 10px;
     border-radius: var(--radius-sm);
     font-weight: 600;
-    font-size: 15px;
+    font-size: 13px;
     cursor: pointer;
     box-shadow: 0 4px 6px -1px rgba(234, 88, 12, 0.2);
     transition: all 0.2s;
@@ -1078,7 +1078,7 @@ body {
 }
 
 .recommended-desc {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-secondary);
     margin-bottom: 8px;
     line-height: 1.4;
@@ -2579,7 +2579,7 @@ function getLandingHTML() {
         <head>
             <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>kurate - For the curious</title>
+                    <title>kurate - for the curious</title>
                     <meta name="description" content="Your personal library of ideas from across the web. You are the curator.">
                         <link rel="icon" type="image/png" href="/favicon.png?v=2">
 
@@ -2587,7 +2587,7 @@ function getLandingHTML() {
                             <meta property="og:type" content="website">
                                 <meta property="og:url" content="https://kurate.net/">
                                     <meta property="og:site_name" content="kurate">
-                                        <meta property="og:title" content="kurate - For the curious">
+                                        <meta property="og:title" content="kurate - for the curious">
                                             <meta property="og:description" content="Your personal library of ideas from across the web. You are the curator.">
                                                 <meta property="og:image" content="https://kurate.net/og-image.png">
                                                     <meta property="og:image:secure_url" content="https://kurate.net/og-image.png">
@@ -2598,7 +2598,7 @@ function getLandingHTML() {
                                                                     <!-- Twitter -->
                                                                     <meta property="twitter:card" content="summary_large_image">
                                                                         <meta property="twitter:url" content="https://kurate.net/">
-                                                                            <meta property="twitter:title" content="kurate - For the curious">
+                                                                            <meta property="twitter:title" content="kurate - for the curious">
                                                                                 <meta property="twitter:description" content="Your personal library of ideas from across the web. You are the curator.">
                                                                                     <meta property="twitter:image" content="https://kurate.net/og-image.png">
 
@@ -2705,7 +2705,7 @@ function getLandingHTML() {
 
                                                                                                                                 <!-- Overlay Text -->
                                                                                                                                 <div class="absolute bottom-6 left-6 z-10">
-                                                                                                                                    <h3 class="font-serif text-white text-2xl italic tracking-wide drop-shadow-md">"kurate - For the curious"</h3>
+                                                                                                                                    <h3 class="font-serif text-white text-2xl italic tracking-wide drop-shadow-md">"kurate - for the curious"</h3>
                                                                                                                                 </div>
 
                                                                                                                                 <!-- Gradient Overlay for text readability -->
