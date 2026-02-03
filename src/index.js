@@ -287,7 +287,7 @@ function getIndexHTML() {
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                         </svg>
-                        <input type="text" id="searchInput" class="search-input" placeholder="Search resources...">
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search through your curated list...">
                     </div>
 
                     <section class="links-container">
