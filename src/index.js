@@ -335,12 +335,56 @@ function getIndexHTML() {
                              </div>
                             
                             <button type="submit" id="addBtn" class="btn btn-primary btn-full">
-                                Save Link
+                                Curate
                             </button>
                         </form>
                     </div>
+
+                    <!-- Recommended Reading Section -->
+                    <div class="sidebar-card recommended-card">
+                        <div class="recommended-section">
+                            <h3 class="sidebar-title-small recommended-sidebar-title">Recommended Reading</h3>
+                            <p class="recommended-desc">Discover trending articles from across the web</p>
+                            <button id="openRecommendedBtn" class="btn btn-primary">
+                                Explore Articles
+                            </button>
+                        </div>
+                    </div>
                 </aside>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommended Reading Portal Modal -->
+    <div id="recommendedModal" class="recommended-modal hidden">
+        <div class="recommended-modal-backdrop" onclick="window.app.closeRecommendedPortal()"></div>
+        <div class="recommended-modal-content">
+            <div class="recommended-modal-header">
+                <div class="recommended-modal-title-section">
+                    <h2 class="recommended-modal-title">Recommended Reading</h2>
+                    <p class="recommended-modal-subtitle">Trending articles from the past 7 days</p>
+                </div>
+                <button class="recommended-modal-close" onclick="window.app.closeRecommendedPortal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="recommended-modal-filters">
+                <button class="recommended-filter active" data-source="all">All</button>
+                <button class="recommended-filter" data-source="sports">Sports</button>
+                <button class="recommended-filter" data-source="entertainment">Entertainment</button>
+                <button class="recommended-filter" data-source="business">Business</button>
+                <button class="recommended-filter" data-source="technology">Technology</button>
+                <button class="recommended-filter" data-source="education">Education</button>
+                <button class="recommended-filter" data-source="other">Other</button>
+            </div>
+            <div id="recommendedArticles" class="recommended-articles-grid">
+                <div class="recommended-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading trending articles...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -789,10 +833,10 @@ body {
 
 /* Right Sidebar */
 .sidebar-right .sidebar-card {
-    background: #fff;
-    border-radius: 24px;
-    padding: 24px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    background: #FAFAFA;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--border-light);
 }
 
 .sidebar-title-small {
@@ -827,7 +871,7 @@ body {
     width: 100%;
     padding: 14px 16px;
     background: #F8FAFC;
-    border: 1px solid #F1F5F9;
+    border: 1px solid #CBD5E1;
     border-radius: 12px;
     font-family: var(--font-sans);
     font-size: 14px;
@@ -860,7 +904,7 @@ body {
     width: 100%;
     padding: 12px 16px;
     background: #F9FAFB; /* Gray 50 */
-    border: 1px solid #F3F4F6;
+    border: 1px solid #CBD5E1;
     border-radius: var(--radius-sm);
     font-family: var(--font-sans);
     font-size: 14px;
@@ -885,7 +929,7 @@ body {
 
 .custom-select-trigger {
     background: #F8FAFC;
-    border: 1px solid #F1F5F9;
+    border: 1px solid #CBD5E1;
     border-radius: 12px;
     padding: 11px 16px;
     width: 100%;
@@ -944,6 +988,15 @@ body {
     background: var(--accent-orange-hover);
     transform: translateY(-1px);
     box-shadow: 0 6px 8px -1px rgba(234, 88, 12, 0.3);
+}
+
+.btn-primary:focus {
+    outline: none;
+}
+
+.btn-primary:focus-visible {
+    outline: 2px solid var(--accent-orange);
+    outline-offset: 2px;
 }
 
 /* Empty State */
@@ -1008,6 +1061,354 @@ body {
     to { transform: translateY(0); opacity: 1; }
 }
 
+/* Recommended Reading Section */
+.recommended-card {
+    margin-top: 16px;
+    background: #FAFAFA;
+    border: 1px solid var(--border-light);
+}
+
+.recommended-section {
+    text-align: center;
+    padding: 4px 0;
+}
+
+.recommended-sidebar-title {
+    margin-bottom: 4px !important;
+}
+
+.recommended-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.btn-recommended {
+    width: 100%;
+    background: var(--accent-orange);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-recommended:hover {
+    background: var(--accent-orange-hover);
+}
+
+.btn-recommended:focus {
+    outline: none;
+}
+
+.btn-recommended svg {
+    transition: transform 0.2s ease;
+}
+
+.btn-recommended:hover svg {
+    transform: translateX(4px);
+}
+
+/* Recommended Modal Portal */
+.recommended-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.recommended-modal.hidden {
+    display: none;
+}
+
+.recommended-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.recommended-modal-content {
+    position: relative;
+    width: 85%;
+    height: 85%;
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpModal {
+    from { 
+        opacity: 0;
+        transform: translateY(30px) scale(0.98);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.recommended-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid #E5E7EB;
+    background: #FAFAFA;
+}
+
+.recommended-modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.recommended-modal-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 2px 0 0;
+}
+
+.recommended-modal-close {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: #F3F4F6;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: var(--text-secondary);
+}
+
+.recommended-modal-close:hover {
+    background: #E5E7EB;
+    color: var(--text-primary);
+}
+
+.recommended-modal-filters {
+    display: flex;
+    gap: 8px;
+    padding: 16px 32px;
+    border-bottom: 1px solid #F3F4F6;
+    background: #fff;
+}
+
+.recommended-filter {
+    padding: 8px 16px;
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.recommended-filter:hover {
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+}
+
+.recommended-filter.active {
+    background: var(--accent-orange);
+    border-color: var(--accent-orange);
+    color: white;
+}
+
+.recommended-articles-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    align-content: start;
+}
+
+.recommended-articles-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.recommended-articles-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.recommended-articles-grid::-webkit-scrollbar-thumb {
+    background: #D1D5DB;
+    border-radius: 10px;
+}
+
+/* Recommended Article Card */
+.recommended-article {
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    min-height: 200px;
+    height: 200px;
+}
+
+.recommended-article:hover {
+    border-color: #D1D5DB;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+.recommended-article-source {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.recommended-article-source-badge {
+    padding: 3px 8px;
+    background: #FFF7ED;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-orange);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.recommended-article-date {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.recommended-article-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.recommended-article-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.recommended-article-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid #F3F4F6;
+}
+
+.recommended-article-domain {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.recommended-save-btn {
+    padding: 6px 12px;
+    background: var(--accent-orange);
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s;
+}
+
+.recommended-save-btn:hover {
+    background: var(--accent-orange-hover);
+}
+
+.recommended-save-btn.saved {
+    background: #D1FAE5;
+    color: #059669;
+}
+
+/* Loading State */
+.recommended-loading {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+    color: var(--text-secondary);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #F3F4F6;
+    border-top-color: var(--accent-orange);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Empty/Error State for Recommended */
+.recommended-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 0;
+    color: var(--text-secondary);
+}
+
+.recommended-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
 /* Media Queries */
 @media (max-width: 1200px) {
     .main-content {
@@ -1066,7 +1467,7 @@ class LinksApp {
 
     init() {
         if (!this.token) {
-            window.location.href = '/';
+            window.location.replace('/');
             return;
         }
         
@@ -1079,7 +1480,7 @@ class LinksApp {
         } catch (e) {
             localStorage.removeItem('authToken');
             this.token = null;
-            window.location.href = '/';
+            window.location.replace('/');
             return;
         }
         
@@ -1149,34 +1550,34 @@ class LinksApp {
                 if (isAuthenticated) {
                     this.navigateTo('/home');
                 } else {
-                    window.location.href = '/';
+                    window.location.replace('/');
                 }
                 break;
             case '/login':
                 if (isAuthenticated) {
                     this.navigateTo('/home');
                 } else {
-                    window.location.href = '/';
+                    window.location.replace('/');
                 }
                 break;
             case '/signup':
                 if (isAuthenticated) {
                     this.navigateTo('/home');
                 } else {
-                    window.location.href = '/';
+                    window.location.replace('/');
                 }
                 break;
             case '/reset-password':
                 if (isAuthenticated) {
                     this.navigateTo('/home');
                 } else {
-                    window.location.href = '/';
+                    window.location.replace('/');
                 }
                 break;
             case '/home':
             case '/dashboard':
                 if (!isAuthenticated) {
-                    window.location.href = '/';
+                    window.location.replace('/');
                 } else {
                     await this.showMainApp();
                 }
@@ -1185,7 +1586,7 @@ class LinksApp {
                 if (isAuthenticated) {
                     this.navigateTo('/home');
                 } else {
-                    window.location.href = '/';
+                    window.location.replace('/');
                 }
                 break;
         }
@@ -1314,7 +1715,19 @@ class LinksApp {
 
     async showMainApp() {
         this.showMainAppSync();
-        await this.loadLinks(); 
+        await this.loadLinks();
+        
+        // Preload recommended articles in background (reduces latency when opening modal)
+        this.preloadRecommendedArticles();
+    }
+
+    async preloadRecommendedArticles() {
+        // Don't block - just preload in background
+        try {
+            await this.loadRecommendedArticles(true);
+        } catch (e) {
+            // Silent fail for preloading
+        }
     }
 
     clearAddLinkForm() {
@@ -1390,7 +1803,7 @@ class LinksApp {
             this.lastSyncTime = 0;
             this.lastSyncTime = 0;
             localStorage.removeItem('authToken');
-            window.location.href = '/';
+            window.location.replace('/');
         }
     }
 
@@ -1453,7 +1866,34 @@ class LinksApp {
             linkUrlInput.addEventListener('change', handleUrlUpdate); // Fallback for manual entry
         }
 
-        // Delegation for dynamic elements
+        // Recommended Reading Button
+        const openRecommendedBtn = document.getElementById('openRecommendedBtn');
+        if (openRecommendedBtn) {
+            openRecommendedBtn.addEventListener('click', () => {
+                this._s('click_recommended_reading');
+                this.openRecommendedPortal();
+            });
+        }
+
+        // Recommended Reading Filter Buttons
+        const filterButtons = document.querySelectorAll('.recommended-filter');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                filterButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.filterRecommendedArticles(e.target.dataset.source);
+            });
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('recommendedModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    this.closeRecommendedPortal();
+                }
+            }
+        });        // Delegation for dynamic elements
         document.addEventListener('click', (e) => {
              // Footer Author Link
              if (e.target.matches('.sidebar-footer a')) {
@@ -1813,6 +2253,285 @@ switchTab(tab) {
         await this.loadLinks(true);
     } catch (error) {
         await this.loadLinks(true);
+    }
+}
+
+// ==========================================
+// Recommended Reading Portal
+// ==========================================
+
+openRecommendedPortal() {
+    const modal = document.getElementById('recommendedModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Prevent background scroll
+        
+        // Use cached articles if available, otherwise fetch
+        if (this.recommendedArticles && this.recommendedArticles.length > 0) {
+            this.renderRecommendedArticles();
+            // Optionally refresh in background if it's been a while
+        } else {
+            this.loadRecommendedArticles();
+        }
+    }
+}
+
+closeRecommendedPortal() {
+    const modal = document.getElementById('recommendedModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = ''; // Restore scroll
+    }
+}
+
+async loadRecommendedArticles(silent = false) {
+    // If already loaded and silent, just return cached
+    if (silent && this.recommendedArticles && this.recommendedArticles.length > 0) {
+        return;
+    }
+
+    this.currentRecommendedFilter = 'all';
+    
+    const container = document.getElementById('recommendedArticles');
+    
+    // Only show loading UI if not silent and container exists
+    if (!silent && container) {
+        container.innerHTML = \`
+            <div class="recommended-loading">
+                <div class="loading-spinner"></div>
+                <p>Loading trending articles...</p>
+            </div>
+        \`;
+    }
+
+    // RSS Feed sources - highly reliable verified feeds
+    const feeds = [
+        // Sports
+        { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
+        { name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'sports' },
+        { name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', category: 'sports' },
+        
+        // Entertainment
+        { name: 'Variety', url: 'https://variety.com/feed/', category: 'entertainment' },
+        { name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', category: 'entertainment' },
+        { name: 'Deadline', url: 'https://deadline.com/feed/', category: 'entertainment' },
+        
+        // Business
+        { name: 'Harvard Business Review', url: 'https://hbr.org/feed', category: 'business' },
+        { name: 'Entrepreneur', url: 'https://www.entrepreneur.com/latest.rss', category: 'business' },
+        { name: 'Fortune', url: 'https://fortune.com/feed/', category: 'business' },
+        
+        // Technology
+        { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'technology' },
+        { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'technology' },
+        { name: 'Hacker News', url: 'https://hnrss.org/frontpage', category: 'technology' },
+        { name: 'Engadget', url: 'https://www.engadget.com/rss.xml', category: 'technology' },
+        
+        // Education
+        { name: 'EdSurge', url: 'https://www.edsurge.com/articles_rss', category: 'education' },
+        { name: 'Open Culture', url: 'https://www.openculture.com/feed', category: 'education' },
+        { name: 'Edutopia', url: 'https://www.edutopia.org/rss.xml', category: 'education' },
+        
+        // Other
+        { name: 'Lifehacker', url: 'https://lifehacker.com/rss', category: 'other' },
+        { name: 'Smithsonian', url: 'https://www.smithsonianmag.com/rss/latest_articles/', category: 'other' },
+        { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', category: 'other' }
+    ];
+
+    const allArticles = [];
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+    // Fetch from multiple RSS feeds in parallel with individual timeouts
+    const fetchPromises = feeds.map(async (feed) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout per feed
+
+        try {
+            const apiUrl = \`https://api.rss2json.com/v1/api.json?rss_url=\${encodeURIComponent(feed.url)}&count=10\`;
+            const response = await fetch(apiUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) return [];
+            
+            const data = await response.json();
+            
+            if (data.status === 'ok' && data.items) {
+                return data.items.map(item => {
+                    const pubDate = new Date(item.pubDate || item.pub_date || item.created);
+                    // Include articles from the last 14 days for more content
+                    if (pubDate >= fourteenDaysAgo) {
+                        return {
+                            title: item.title,
+                            url: item.link,
+                            description: this.stripHtml(item.description || item.content || '').substring(0, 180),
+                            source: feed.name,
+                            category: feed.category,
+                            pubDate: pubDate,
+                            domain: this.extractDomain(item.link)
+                        };
+                    }
+                    return null;
+                }).filter(Boolean);
+            }
+            return [];
+        } catch (error) {
+            clearTimeout(timeoutId);
+            return [];
+        }
+    });
+
+    try {
+        const results = await Promise.all(fetchPromises);
+        results.forEach(articles => {
+            if (articles && Array.isArray(articles)) {
+                allArticles.push(...articles);
+            }
+        });
+
+        // Sort by date (newest first)
+        allArticles.sort((a, b) => b.pubDate - a.pubDate);
+
+        // Remove duplicates based on URL
+        const seen = new Set();
+        this.recommendedArticles = allArticles.filter(article => {
+            const key = article.url;
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+
+        if (container) {
+            this.renderRecommendedArticles();
+        }
+    } catch (err) {
+        console.error('Failed to load recommended articles:', err);
+    }
+}
+
+stripHtml(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+}
+
+    extractDomain(url) {
+        try {
+            const domain = new URL(url).hostname.replace('www.', '');
+            return domain;
+        } catch {
+            return url;
+        }
+    }
+
+    escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+filterRecommendedArticles(category) {
+    this.currentRecommendedFilter = category;
+    this.renderRecommendedArticles();
+}
+
+renderRecommendedArticles() {
+    const container = document.getElementById('recommendedArticles');
+    if (!container) return;
+
+    let articlesToShow = this.recommendedArticles;
+
+    // Apply filter
+    if (this.currentRecommendedFilter !== 'all') {
+        articlesToShow = this.recommendedArticles.filter(
+            a => a.category === this.currentRecommendedFilter
+        );
+    }
+
+    if (articlesToShow.length === 0) {
+        container.innerHTML = \`
+            <div class="recommended-empty">
+                <div class="recommended-empty-icon">📭</div>
+                <p>No articles found. Try a different filter or check back later.</p>
+            </div>
+        \`;
+        return;
+    }
+
+    container.innerHTML = articlesToShow.map(article => {
+        const timeAgo = this.getTimeAgo(article.pubDate);
+        return \`
+            <article class="recommended-article" onclick="window.open('\${article.url}', '_blank')">
+                <div class="recommended-article-source">
+                    <span class="recommended-article-source-badge">\${article.source}</span>
+                    <span class="recommended-article-date">\${timeAgo}</span>
+                </div>
+                <h3 class="recommended-article-title">\${this.escapeHtml(article.title)}</h3>
+                <p class="recommended-article-desc">\${this.escapeHtml(article.description)}</p>
+                <div class="recommended-article-footer">
+                    <span class="recommended-article-domain">\${article.domain}</span>
+                    <button class="recommended-save-btn" onclick="event.stopPropagation(); window.app.saveRecommendedArticle('\${this.escapeHtml(article.url)}', '\${this.escapeHtml(article.title)}', '\${article.category}', this)">
+                        Curate
+                    </button>
+                </div>
+            </article>
+        \`;
+    }).join('');
+}
+
+getTimeAgo(date) {
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) {
+        return \`\${diffDays}d ago\`;
+    } else if (diffHours > 0) {
+        return \`\${diffHours}h ago\`;
+    } else {
+        return 'Just now';
+    }
+}
+
+escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/'/g, "\\\\'").replace(/"/g, '\\\\"');
+}
+
+async saveRecommendedArticle(url, title, category, btnElement) {
+    try {
+        // Capitalize first letter of category
+        const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1);
+        
+        const result = await this.apiRequest('/links', {
+            method: 'POST',
+            body: JSON.stringify({
+                url: url,
+                title: title,
+                category: formattedCategory
+            })
+        });
+
+        if (result._httpOk || result.id) {
+            // Update button to show saved state
+            btnElement.classList.add('saved');
+            btnElement.innerHTML = '✓ Curated';
+            btnElement.disabled = true;
+            
+            // Refresh links in background
+            this.loadLinks(true);
+        } else {
+            throw new Error(result.error || 'Failed to save');
+        }
+    } catch (error) {
+        console.error('Failed to save article:', error);
+        btnElement.innerHTML = '✗ Error';
+        setTimeout(() => {
+            btnElement.innerHTML = 'Curate';
+        }, 2000);
     }
 }
 }
