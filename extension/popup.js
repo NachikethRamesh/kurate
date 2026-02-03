@@ -47,16 +47,6 @@ function setupErrorHandlers() {
         }
     });
 
-    const titleInput = document.getElementById('title');
-    if (titleInput) {
-        titleInput.addEventListener('input', () => {
-            const statusEl = document.getElementById('saveStatus');
-            if (statusEl) {
-                statusEl.textContent = '';
-                statusEl.classList.remove('error', 'success');
-            }
-        });
-    }
 }
 
 // Logo Click Logic
@@ -125,13 +115,11 @@ function showView(viewId) {
 async function showSaveView() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    const titleInput = document.getElementById('title');
     const urlDisplay = document.getElementById('urlDisplay');
-
-    if (titleInput) titleInput.value = tab.title || '';
     if (urlDisplay) urlDisplay.textContent = tab.url || '';
 
     window.currentUrl = tab.url;
+    window.currentTabTitle = tab.title || ''; // Store for fallback
     showView('saveView');
 }
 
@@ -196,7 +184,6 @@ if (saveForm) {
     saveForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const statusEl = document.getElementById('saveStatus');
-        const title = document.getElementById('title').value;
         const category = categoryInput.value;
         const url = window.currentUrl;
 
@@ -208,6 +195,19 @@ if (saveForm) {
 
         try {
             const token = await getAuthToken();
+
+            // Fetch title from backend API
+            let title = window.currentTabTitle; // Fallback to tab title
+            try {
+                const metaResponse = await fetch(`${API_BASE}/meta?url=${encodeURIComponent(url)}`);
+                const metaData = await metaResponse.json();
+                if (metaData && metaData.title) {
+                    title = metaData.title;
+                }
+            } catch (metaError) {
+                console.log('Meta fetch failed, using tab title:', metaError);
+            }
+
             const response = await fetch(`${API_BASE}/links`, {
                 method: 'POST',
                 headers: {

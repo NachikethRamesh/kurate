@@ -69,6 +69,28 @@ export default {
             return handleToggleFavorite(request, env);
         }
 
+        if (path === '/api/meta') {
+            const targetUrl = url.searchParams.get('url');
+            if (!targetUrl) return createErrorResponse('Missing URL', 400);
+
+            try {
+                const response = await fetch(targetUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Kurate/1.0)' }
+                });
+                const html = await response.text();
+                // Simple regex to extract title
+                const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                // Decode HTML entities (basic) can be done on client side or via simple replace if needed, 
+                // but usually the raw text is okay or browser handles it in input.
+                const title = titleMatch ? titleMatch[1].trim() : '';
+                return createResponse({ title });
+            } catch (error) {
+                console.error('Meta fetch error:', error);
+                // Return empty title rather than error to avoid disrupting user
+                return createResponse({ title: '' });
+            }
+        }
+
         // Metrics Endpoint (Obfuscated)
         if (path === '/api/system/sync' && request.method === 'POST') {
             try {
@@ -181,116 +203,151 @@ function getIndexHTML() {
     <meta name="description" content="Save and organize your links with kurate">
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="/favicon.png?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital,wght@0,400;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Main Application -->
     <div id="mainApp" class="app">
         <!-- Header -->
         <header class="app-header">
             <div class="header-content">
-                <div class="logo-container">
-                    <div class="logo-circle-icon">★</div>
+                <a href="https://kurate.net" class="logo-container">
+                    <div class="logo-circle-icon">K</div>
                     <span class="logo-text">kurate</span>
-                </div>
-                <button id="logoutBtn" class="logout-btn">Log out</button>
+                </a>
+                <button id="logoutBtn" class="logout-btn">
+                    Log out
+                </button>
             </div>
         </header>
 
-        <!-- Main Content -->
+        <!-- Main Content Grid -->
         <div class="container">
             <div class="main-content">
-                <!-- Sidebar -->
-                <aside class="sidebar">
+                
+                <!-- Left Sidebar: Navigation -->
+                <aside class="sidebar-left">
+                    <div class="nav-section">
+                        <h3 class="nav-header">Collections</h3>
+                        <nav class="nav-list" id="mainNav">
+                            <button id="allTab" class="nav-item active">
+                                <span class="nav-icon">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                                </span>
+                                All
+                            </button>
+                            <button id="unreadTab" class="nav-item">
+                                <span class="nav-icon">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                </span>
+                                To be read
+                            </button>
+                            <button id="readTab" class="nav-item">
+                                <span class="nav-icon">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                </span>
+                                Read
+                            </button>
+                            <button id="favoritesTab" class="nav-item">
+                                <span class="nav-icon">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                </span>
+                                Favorites
+                            </button>
+                        </nav>
+                    </div>
+
+                    <div class="nav-section">
+                        <h3 class="nav-header">Categories</h3>
+                        <nav class="nav-list" id="categoryNav">
+                            <!-- Populated by JS or static for now, JS toggles active class -->
+                             <button class="nav-item category-item active" data-category="all">
+                                All
+                             </button>
+                             <button class="nav-item category-item" data-category="Sports">Sports</button>
+                             <button class="nav-item category-item" data-category="Entertainment">Entertainment</button>
+                             <button class="nav-item category-item" data-category="Business">Business</button>
+                             <button class="nav-item category-item" data-category="Technology">Technology</button>
+                             <button class="nav-item category-item" data-category="Education">Education</button>
+                             <button class="nav-item category-item" data-category="Other">Other</button>
+                        </nav>
+                    </div>
+                </aside>
+
+                <!-- Middle: Content Area -->
+                <main class="content-mid">
+                    <div class="content-header">
+                        <h2 class="content-title" id="userGreeting">Curated List</h2>
+                    </div>
+
+                    <div class="search-container">
+                        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search resources...">
+                    </div>
+
+                    <section class="links-container">
+                        <div id="links" class="links-grid">
+                            <div class="empty-state">
+                                <div class="empty-description">Loading links...</div>
+                            </div>
+                        </div>
+                    </section>
+                </main>
+
+                <!-- Right Sidebar: Add Link -->
+                <aside class="sidebar-right">
                     <div class="sidebar-card">
                         <div class="sidebar-header">
-                            <h2 class="sidebar-title">Add Link</h2>
+                             <h2 class="sidebar-title-small">
+                                 Add Link
+                             </h2>
                         </div>
                         <form id="addLinkForm" class="add-link-form">
                             <div class="form-group">
-                                <label for="linkUrl" class="form-label">URL</label>
-                                <input 
-                                    type="url" 
-                                    id="linkUrl" 
-                                    class="form-input" 
-                                    placeholder="https://example.com"
-                                    required
-                                >
+                                <label for="linkUrl" class="form-label">Link</label>
+                                <input type="url" id="linkUrl" class="form-input" placeholder="https://..." required>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="linkTitle" class="form-label">Title (optional)</label>
-                                <input 
-                                    type="text" 
-                                    id="linkTitle" 
-                                    class="form-input" 
-                                    placeholder="Custom title"
-                                >
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label">Category</label>
-                                <div class="custom-select-wrapper">
-                                    <input type="hidden" id="linkCategory" value="">
-                                    <button type="button" class="custom-select-trigger" id="categoryTrigger">
-                                        <span id="categoryText">Select Category</span>
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M6 9l6 6 6-6"/>
-                                        </svg>
-                                    </button>
-                                    <div class="custom-options" id="categoryOptions">
-                                        <div class="custom-option" data-value="Sports">Sports</div>
-                                        <div class="custom-option" data-value="Entertainment">Entertainment</div>
-                                        <div class="custom-option" data-value="Business">Business</div>
-                                        <div class="custom-option" data-value="Technology">Technology</div>
-                                        <div class="custom-option" data-value="Education">Education</div>
-                                        <div class="custom-option" data-value="Other">Other</div>
-                                    </div>
-                                </div>
-                            </div>
+                             <div class="form-group">
+                                 <label class="form-label">Category</label>
+                                 <div class="custom-select-wrapper">
+                                     <input type="hidden" id="linkCategory" value="">
+                                     <button type="button" class="custom-select-trigger" id="categoryTrigger">
+                                         <span id="categoryText">Select Category</span>
+                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                             <path d="M6 9l6 6 6-6"/>
+                                         </svg>
+                                     </button>
+                                     <div class="custom-options" id="categoryOptions">
+                                         <div class="custom-option" data-value="Sports">Sports</div>
+                                         <div class="custom-option" data-value="Entertainment">Entertainment</div>
+                                         <div class="custom-option" data-value="Business">Business</div>
+                                         <div class="custom-option" data-value="Technology">Technology</div>
+                                         <div class="custom-option" data-value="Education">Education</div>
+                                         <div class="custom-option" data-value="Other">Other</div>
+                                     </div>
+                                 </div>
+                             </div>
                             
                             <button type="submit" id="addBtn" class="btn btn-primary btn-full">
-                                Save
+                                Save Link
                             </button>
                         </form>
                     </div>
-
-
                 </aside>
 
-                <!-- Content Area -->
-                <main class="content-area">
-                    <div class="content-header">
-                        <h2 class="content-title" id="userGreeting">Curated List</h2>
-                        <div class="tabs">
-                            <button id="unreadTab" class="tab-button active">To be read</button>
-                            <button id="readTab" class="tab-button">Read</button>
-                            <button id="favoritesTab" class="tab-button">Favorites</button>
-                        </div>
-                    </div>
-                    <div id="links" class="links-container">
-                        <div class="empty-state">
-                            <div class="empty-icon-placeholder">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M12 20h9"/>
-                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                                </svg>
-                            </div>
-                            <div class="empty-title">Your links are empty</div>
-                            <div class="empty-description">Save your first link to get started</div>
-                        </div>
-                    </div>
-                </main>
             </div>
         </div>
     </div>
 
     <!-- Status/Alert Container -->
-    <div id="status" class="alert"></div>
+    <div id="statusMessage" class="status-message hidden"></div>
 
-    <!-- Scripts -->
     <script src="app.js"></script>
 </body>
 </html>
@@ -298,24 +355,27 @@ function getIndexHTML() {
 }
 
 function getStylesCSS() {
-    return `/* kurate - Warm Minimalist Design */
+    return `/* kurate - Modern Clean Design */
 :root {
-    --bg-warm: #FDFAF8;
-    --primary-orange: #D94E28;
-    --primary-orange-hover: #b53e1e;
-    --text-main: #1C1917;
-    --text-muted: #57534E;
-    --text-light: #A8A29E;
-    --card-bg: #FFFFFF;
-    --border-subtle: #F0EFEA;
-    --border-strong: #E7E5E4;
-    --shadow-soft: 0 4px 20px -2px rgba(28, 25, 23, 0.05);
-    --shadow-hover: 0 10px 25px -5px rgba(28, 25, 23, 0.1);
-    --radius-lg: 24px;
-    --radius-md: 16px;
-    --radius-sm: 8px;
+    --bg-page: #FDFAF8;
+    --text-primary: #1C1917;
+    --text-secondary: #4B5563; /* Gray 600 */
+    --text-tertiary: #9CA3AF;
+    --accent-orange: #D2622A;
+    --accent-orange-light: #FFF4F0;
+    --accent-orange-hover: #B34E1F;
+    --border-light: #E5E7EB; /* Gray 200 */
+    --card-hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    
     --font-serif: "Instrument Serif", serif;
     --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+    
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    
+    --sidebar-width-left: 216px;
+    --sidebar-width-right: 314px;
 }
 
 * {
@@ -324,246 +384,551 @@ function getStylesCSS() {
     box-sizing: border-box;
 }
 
-body {
-    font-family: var(--font-sans);
-    background: var(--bg-warm);
-    color: var(--text-main);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    height: 100vh;
-}
 
-/* Auth Styles (keeping simplified logic, but updated aesthetic) */
-.auth-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-}
-
-.auth-card {
-    background: var(--card-bg);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-soft);
-    padding: 48px;
-    width: 100%;
-    max-width: 400px;
-}
-
-.auth-header { text-align: center; margin-bottom: 32px; }
-.auth-title { font-family: var(--font-serif); font-size: 32px; font-weight: 600; color: var(--text-main); margin-bottom: 8px; }
-.auth-subtitle { color: var(--text-muted); font-size: 16px; }
-
-/* Main App Layout */
-.app {
-    height: 100vh;
-    background: var(--bg-warm);
+html {
     overflow: hidden;
 }
 
+body {
+    font-family: var(--font-sans);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+}
+
+/* Layout */
+.app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 40px;
+    width: 100%;
+    flex: 1;
+}
+
 .app-header {
-    background: transparent;
-    padding: 24px 0;
+    padding: 24px 40px;
+    max-width: 1440px;
+    margin: 0 auto;
+    width: 100%;
 }
 
 .header-content {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 0 32px;
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
 }
 
-/* Logo Styles */
+/* Logo */
 .logo-container {
     display: flex;
     align-items: center;
     gap: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
 }
 
 .logo-circle-icon {
     width: 24px;
     height: 24px;
-    background: black;
+    background: #000;
     border-radius: 50%;
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    font-size: 12px;
-    line-height: 1;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-sans);
 }
 
 .logo-text {
-    font-family: var(--font-sans);
     font-weight: 700;
-    font-size: 24px;
-    letter-spacing: -0.025em;
-    color: var(--text-main);
-}
-
-.content-title {
     font-family: var(--font-sans);
-    font-size: 32px;
-    font-weight: 600;
-    color: var(--text-main);
+    font-size: 20px;
+    letter-spacing: -0.02em;
 }
 
-/* Buttons */
+/* Logout Button */
 .logout-btn {
-    padding: 10px 24px;
     background: transparent;
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--border-light);
+    padding: 8px 16px;
     border-radius: 100px;
     font-family: var(--font-sans);
     font-size: 14px;
     font-weight: 500;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     cursor: pointer;
-    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
 }
 
 .logout-btn:hover {
-    border-color: var(--text-muted);
-    color: var(--text-main);
-    background: rgba(0,0,0,0.02);
+    border-color: var(--text-primary);
+    color: var(--text-primary);
 }
 
-/* Layout Grid */
-.container {
-    max-width: 1280px;
-    margin: 0 auto;
-    padding: 0 32px 48px;
-}
+.logout-icon { font-size: 12px; }
 
+/* Main Grid Layout */
 .main-content {
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: var(--sidebar-width-left) 1fr var(--sidebar-width-right);
     gap: 40px;
-    align-items: start;
+    padding-top: 12px;
+    padding-bottom: 64px;
 }
 
-/* Card Common Styles */
-.sidebar-card, .content-area {
-    background: var(--card-bg);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-soft);
-    overflow: hidden;
-}
+/* Left Sidebar: Navigation */
+.nav-section { margin-bottom: 34px; }
 
-/* Sidebar */
-.sidebar-card {
-    padding: 32px;
-    overflow: visible;
-}
-
-.sidebar-title {
-    font-family: var(--font-sans);
-    font-size: 28px;
+.nav-header {
+    font-size: 10px;
     font-weight: 700;
-    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+    margin-top: 0;
+}
+
+.nav-list { display: flex; flex-direction: column; gap: 4px; }
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.nav-item:hover { 
+    color: var(--text-primary); 
+    background: #F3F4F6;
+    outline: none !important;
+}
+
+.nav-item.active {
+    background: #FFEDD5; /* Darkened peach */
+    color: var(--accent-orange); /* Vibrant orange */
+    outline: none !important;
+    border: none !important;
+}
+
+.nav-item:focus {
+    outline: none !important;
+    border: none !important;
+}
+
+#categoryNav .nav-item.active {
+    background: #FFEDD5;
+    color: var(--accent-orange);
+}
+
+.category-count {
+    margin-left: auto;
+    background: #374151;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-orange); /* Vibrant orange */
+    opacity: 1;
+}
+
+.category-item { padding-left: 10px; } /* Simple list for categories */
+
+/* Content Area */
+.content-mid { 
+    display: flex; 
+    flex-direction: column;
+    min-height: 0;
+}
+
+.content-header { margin-bottom: 0; }
+
+.content-title {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.content-title span {
+    color: var(--accent-orange);
+}
+
+/* Search */
+.search-container {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 16px 10px 48px;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--text-primary);
+    background: #fff;
+    transition: all 0.2s;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--text-primary);
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+}
+
+.search-input::placeholder { color: var(--text-tertiary); }
+
+.search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* Links Grid */
+.links-container {
+    max-height: calc(100vh - 230px);
+    overflow-y: auto;
+    padding: 20px;
+    background: #FEFEFE;
+    border: 1px solid #E8E8E8;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: box-shadow 0.3s ease;
+}
+
+.links-container:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+.links-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.links-container::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 8px 0;
+}
+
+.links-container::-webkit-scrollbar-thumb {
+    background: #D1D5DB;
+    border-radius: 10px;
+    border: 2px solid #FEFEFE;
+    transition: background 0.2s ease;
+}
+
+.links-container::-webkit-scrollbar-thumb:hover {
+    background: #9CA3AF;
+}
+
+.links-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Fixed 2 columns */
+    gap: 16px;
+}
+
+/* Link Card */
+.link-card {
+    background: #fff;
+    border: 1px solid #ECECEC;
+    border-radius: 14px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    height: 120px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.link-card:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    border-color: #D1D5DB;
+    transform: translateY(-3px);
+}
+
+.card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+}
+
+.card-badge {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: #F3F4F6;
+    color: var(--text-secondary);
+}
+
+/* Dynamic Badge Colors */
+.badge-Business { background: #FFEDD5; color: #9A3412; }
+.badge-Technology { background: #DBEAFE; color: #1E40AF; }
+.badge-Sports { background: #DCFCE7; color: #166534; }
+.badge-Education { background: #E0E7FF; color: #3730A3; }
+.badge-Entertainment { background: #FCE7F3; color: #9D174D; }
+.badge-Other { background: #F3F4F6; color: #4B5563; }
+
+.star-btn {
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    color: var(--border-light); /* Inactive color matching border roughly or tertiary */
+    color: #D1D5DB; 
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 0;
+    line-height: 1;
+    font-size: 16px;
+}
+
+.star-btn:hover, .star-btn.active { color: #FBBF24; /* Gold/Yellow */ }
+
+.card-main { margin-bottom: 6px; flex: 1; }
+
+.card-title {
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    line-height: 1.2;
+    margin-bottom: 1px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
+}
+
+.card-title a { text-decoration: none; color: inherit; }
+.card-title a:hover { color: var(--accent-orange); }
+
+.card-domain {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 4px;
+}
+
+.mark-read-btn {
+    background: transparent;
+    border: none;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.2s;
+}
+
+.mark-read-btn:hover { color: var(--text-primary); }
+
+.mark-read-btn.is-read { color: var(--accent-orange); }
+
+.card-actions { display: flex; gap: 8px; }
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover { background: #F3F4F6; color: var(--text-primary); }
+
+/* Right Sidebar */
+.sidebar-right .sidebar-card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+}
+
+.sidebar-title-small {
+    font-size: 20px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 24px;
 }
 
-/* Forms */
+.add-link-form {
+    background: transparent;
+}
+
 .form-group { margin-bottom: 20px; }
 
-.form-label {
+.form-group label {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #000000;
     margin-bottom: 8px;
+    margin-left: 2px;
 }
 
-.form-input, .form-select {
+.form-group input, .form-group select {
     width: 100%;
     padding: 14px 16px;
-    background: #FAFAFA;
-    border: 1px solid var(--border-subtle);
+    background: #F8FAFC;
+    border: 1px solid #F1F5F9;
     border-radius: 12px;
     font-family: var(--font-sans);
     font-size: 14px;
-    color: var(--text-main);
-    transition: all 0.2s ease;
+    color: var(--text-primary);
+    transition: all 0.2s;
 }
 
-.form-input::placeholder { color: #D6D3D1; }
+.form-group input::placeholder { color: #94A3B8; }
+
+.save-link-btn {
+    width: 100%;
+    padding: 16px;
+    background: #D94E28;
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+}
+
+.save-link-btn:hover {
+    background: #B73D1E;
+    transform: translateY(-1px);
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: #F9FAFB; /* Gray 50 */
+    border: 1px solid #F3F4F6;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
 
 .form-input:focus {
     outline: none;
-    background: #FFFFFF;
-    border-color: var(--primary-orange);
-    box-shadow: 0 0 0 4px rgba(217, 78, 40, 0.1);
+    background: #fff;
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.1);
 }
 
+.form-input::placeholder { color: #D1D5DB; }
+
 /* Custom Select */
-.custom-select-wrapper { position: relative; }
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+}
 
 .custom-select-trigger {
-    width: 100%;
-    padding: 14px 16px;
-    background: #FAFAFA;
-    border: 1px solid var(--border-subtle);
+    background: #F8FAFC;
+    border: 1px solid #F1F5F9;
     border-radius: 12px;
-    font-family: var(--font-sans);
-    font-size: 14px;
-    color: var(--text-main);
+    padding: 11px 16px;
+    width: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-size: 14px;
+    color: var(--text-primary);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
 }
 
-.custom-select-trigger:hover { background: #fff; border-color: var(--border-strong); }
+.custom-select-trigger:focus {
+    outline: none;
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.1);
+}
 
 .custom-options {
     position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    margin-top: 8px;
     background: white;
-    border-radius: 12px;
-    box-shadow: var(--shadow-hover);
-    border: 1px solid var(--border-subtle);
-    overflow: hidden;
+    width: 100%;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    margin-top: 4px;
+    box-shadow: var(--card-hover-shadow);
     z-index: 50;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: none;
 }
 
-.custom-options.open {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
+.custom-options.open { display: block; }
 
 .custom-option {
-    padding: 8px 16px;
+    padding: 7px 16px;
+    font-size: 14px;
     cursor: pointer;
-    font-size: 13px;
-    color: var(--text-main);
-    transition: background 0.1s;
 }
 
-.custom-option:hover {
-    background: #FFF5F2;
-    color: var(--primary-orange);
-}
+.custom-option:hover { background: #F9FAFB; color: var(--accent-orange); }
 
 .btn-primary {
     width: 100%;
-    background: var(--primary-orange);
+    background: var(--accent-orange);
     color: white;
     border: none;
     padding: 14px;
@@ -571,343 +936,108 @@ body {
     font-weight: 600;
     font-size: 15px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px -1px rgba(234, 88, 12, 0.2);
+    transition: all 0.2s;
 }
 
 .btn-primary:hover {
-    background: var(--primary-orange-hover);
+    background: var(--accent-orange-hover);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(217, 78, 40, 0.2);
+    box-shadow: 0 6px 8px -1px rgba(234, 88, 12, 0.3);
 }
 
-.sidebar-info {
-    margin-top: 32px;
-    padding: 24px;
-    background: var(--card-bg);
-    border-radius: var(--radius-lg);
-    font-size: 13px;
-    color: var(--text-muted);
-    text-align: center;
-    line-height: 1.6;
-    box-shadow: var(--shadow-soft);
-}
-
-/* Content Area */
-.content-area {
-    min-height: 600px;
-    max-height: calc(100vh - 150px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.content-header {
-    padding: 32px 40px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.content-title {
-    font-family: var(--font-sans);
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--text-main);
-}
-
-/* Tabs */
-.tabs {
-    background: var(--bg-warm); /* Use page bg for tab pill container */
-    padding: 4px;
-    border-radius: 100px;
-    display: flex;
-    gap: 4px;
-}
-
-.tab-button {
-    background: transparent;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 100px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 80px;
-}
-
-.tab-button:hover { color: var(--text-main); }
-
-.tab-button.active {
-    background: white;
-    color: var(--text-main);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-/* Link List */
-.links-container { 
-    padding: 0 40px 40px;
-    overflow-y: auto;
-    flex: 1;
-}
-
+/* Empty State */
 .empty-state, .tab-empty-state {
+    grid-column: 1 / -1;
     text-align: center;
-    padding: 80px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    padding: 60px 0;
+    color: var(--text-tertiary);
 }
 
-.empty-icon-placeholder {
-    width: 48px;
-    height: 48px;
-    margin-bottom: 24px;
-    background: #FFF5F2;
-    color: var(--primary-orange);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
+/* Links Scroll Container */
+.links-scroll-container {
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
+    padding: 16px;
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    margin-top: 12px;
 }
 
-.empty-title {
-    font-family: var(--font-sans);
-    font-size: 24px;
-    color: var(--text-main);
-    margin-bottom: 12px;
+/* Custom Scrollbar */
+.links-scroll-container::-webkit-scrollbar {
+    width: 6px;
 }
 
-.empty-description, .tab-empty-message {
-    color: var(--text-muted);
-    font-size: 15px;
-    max-width: 300px;
-    margin: 0 auto;
-}
-
-.link-item {
-    padding: 24px 0;
-    border-bottom: 1px solid var(--border-subtle);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: all 0.2s ease;
-}
-
-.link-item:hover {
-    background: linear-gradient(to right, white, #FAFAFA);
-}
-
-.link-content { flex: 1; padding-right: 24px; }
-
-.link-title {
-    margin-bottom: 6px;
-    font-family: var(--font-sans);
-    font-size: 18px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.external-icon {
-    color: var(--text-light);
-    opacity: 0.5;
-    flex-shrink: 0;
-}
-
-.link-title a { color: var(--text-main); text-decoration: none; }
-.link-title a:hover { color: var(--primary-orange); }
-
-.link-meta {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.link-category {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #D84315;
-    background: #FFE8E1;
-    padding: 4px 8px;
-    border-radius: 6px;
-}
-
-.link-date { font-size: 12px; color: var(--text-light); }
-
-.link-actions { display: flex; gap: 8px; }
-
-.action-btn {
+.links-scroll-container::-webkit-scrollbar-track {
     background: transparent;
-    border: 1px solid var(--border-strong);
-    color: var(--text-muted);
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 12px;
+}
+
+.links-scroll-container::-webkit-scrollbar-thumb {
+    background: #D1D5DB;
+    border-radius: 10px;
+}
+
+.links-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #9CA3AF;
+}
+/* Status Toast */
+.status-message {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    background: #111827;
+    color: white;
+    font-size: 14px;
     font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    z-index: 100;
+    animation: slideUp 0.3s ease-out;
 }
 
-.action-btn:hover {
-    border-color: var(--text-main);
-    color: var(--text-main);
+.status-message.hidden { display: none; }
+
+.status-message.error { background: #EF4444; }
+.status-message.success { background: #10B981; }
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
-.star-icon {
-    font-size: 18px;
-    color: var(--border-strong);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    transition: color 0.2s;
+/* Media Queries */
+@media (max-width: 1200px) {
+    .main-content {
+        grid-template-columns: 200px 1fr 280px;
+        gap: 32px;
+    }
 }
 
-.star-icon:hover, .star-icon.favorite { color: var(--primary-orange); }
-
-/* Responsive Design */
-
-/* Tablets and below (900px) */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .main-content {
         grid-template-columns: 1fr;
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
+        gap: 40px;
     }
-    .content-area {
-        order: 1;
-        min-height: auto;
+    
+    .sidebar-left, .sidebar-right {
+        display: none; /* For simplicity in this responsive pass, or hide non-critical sidebars */
+        /* Ideally convert to hamburger menu or verify requirments. User asked for desktop redesign. */
+        /* Let's stack them for safety */
     }
-    .sidebar {
-        order: 2;
-    }
-    .header-content, .container { 
-        padding-left: 20px; 
-        padding-right: 20px; 
-    }
-    .sidebar-card {
-        padding: 24px;
-    }
-}
-
-/* Tablets (768px and below) */
-@media (max-width: 768px) {
-    .app-header {
-        padding: 16px 0;
-    }
-    .header-content {
-        padding-left: 16px;
-        padding-right: 16px;
-    }
-    .container {
-        padding: 0 16px 32px;
-    }
-    .sidebar-title, .content-title {
-        font-size: 24px;
-    }
-    .tabs {
-        gap: 8px;
-    }
-    .tab-button {
-        font-size: 13px;
-        padding: 8px 14px;
-    }
-    .link-item {
-        padding: 20px 0;
-    }
-    .link-title {
-        font-size: 16px;
-    }
-    .action-btn {
-        font-size: 11px;
-        padding: 5px 10px;
-    }
-}
-
-/* Phones (480px and below) */
-@media (max-width: 480px) {
-    .logo-text {
-        font-size: 18px;
-    }
-    .logout-btn {
-        font-size: 12px;
-        padding: 8px 16px;
-    }
-    .sidebar-title, .content-title {
-        font-size: 20px;
-    }
-    .sidebar-card, .content-header {
-        padding: 20px;
-    }
-    .links-container {
-        padding: 0 20px 20px;
-    }
-    .form-input, .form-textarea {
-        font-size: 16px; /* Prevents zoom on iOS */
-    }
-    .tabs {
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-    .tab-button {
-        flex: 1;
-        min-width: calc(33.33% - 4px);
-        font-size: 12px;
-        padding: 8px 10px;
-    }
-    .link-meta {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 6px;
-    }
-    .link-actions {
-        flex-direction: column;
-        width: 100%;
-        gap: 6px;
-    }
-    .action-btn {
-        width: 100%;
-        text-align: center;
-    }
-    /* Stack action buttons vertically on very small screens */
-    .link-item {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    .link-content {
-        padding-right: 0;
-        margin-bottom: 12px;
-    }
-}
-
-/* Extra small phones (360px and below) */
-@media (max-width: 360px) {
-    .container {
-        padding: 0 12px 24px;
-    }
-    .sidebar-card, .content-header {
-        padding: 16px;
-    }
-    .links-container {
-        padding: 0 16px 16px;
-    }
-    .link-title {
-        font-size: 15px;
-    }
-    .link-category {
-        font-size: 10px;
-    }
+    
+    .sidebar-left { display: block; order: 1; }
+    .content-mid { order: 2; }
+    .sidebar-right { order: 3; }
+    
+    .nav-list { flex-direction: row; overflow-x: auto; padding-bottom: 8px; }
+    .nav-item { white-space: nowrap; }
 }
 `;
 }
+
 
 function getAppJS() {
     return `// Dave's Links App - Client-side JavaScript
@@ -923,13 +1053,15 @@ class LinksApp {
         this.lastSyncTime = 0;
         this.currentRoute = '/';
         this.currentTab = this.getInitialTab();
+        this.searchQuery = '';
+        this.categoryFilter = 'all';
         this.init();
     }
 
     getInitialTab() {
         const hash = window.location.hash.replace('#', '');
-        const validTabs = ['read', 'favorites'];
-        return validTabs.includes(hash) ? hash : 'unread';
+        const validTabs = ['unread','read', 'favorites'];
+        return validTabs.includes(hash) ? hash : 'all';
     }
 
     init() {
@@ -1105,6 +1237,40 @@ class LinksApp {
         }
     }
 
+    async fetchUrlTitle(url) {
+        // Validate URL format roughly
+        try {
+            new URL(url);
+        } catch (e) {
+            return; // Invalid URL
+        }
+
+        const titleInput = document.getElementById('linkTitle');
+        // Only fetch if title is empty to avoid overwriting user input
+        if (titleInput && !titleInput.value.trim()) {
+            // Show loading state could be nice, but keep it simple for now
+            titleInput.placeholder = "Fetching title...";
+            try {
+                const result = await this.apiRequest('/api/meta?url=' + encodeURIComponent(url));
+                if (result && result.title) {
+                    // Decode entities if any (basic approach)
+                    const title = result.title
+                        .replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&quot;/g, '"')
+                        .replace(/&#039;/g, "'");
+                        
+                    titleInput.value = title;
+                }
+            } catch (e) {
+                console.error('Failed to fetch title:', e);
+            } finally {
+                titleInput.placeholder = "Custom title";
+            }
+        }
+    }
+
     // Obfuscated Metrics Tracker
     async _s(t, d = {}) {
         try {
@@ -1138,6 +1304,7 @@ class LinksApp {
         this.clearStatusMessages();
         
         // Set the correct tab state based on URL hash
+        document.getElementById('allTab').classList.toggle('active', this.currentTab === 'all');
         document.getElementById('unreadTab').classList.toggle('active', this.currentTab === 'unread');
         document.getElementById('readTab').classList.toggle('active', this.currentTab === 'read');
         document.getElementById('favoritesTab').classList.toggle('active', this.currentTab === 'favorites');
@@ -1155,7 +1322,7 @@ class LinksApp {
         // Reset custom dropdown
         document.getElementById('linkCategory').value = '';
         document.getElementById('categoryText').textContent = 'Select Category';
-        document.getElementById('categoryText').style.color = 'var(--text-light)';
+        document.getElementById('categoryText').style.color = 'var(--text-tertiary)';
     }
 
     async handlePasswordReset(event) {
@@ -1260,6 +1427,7 @@ class LinksApp {
         });
 
         // Tab Clicks
+        document.getElementById('allTab').addEventListener('click', () => { this._s('click_tab_all'); this.switchTab('all'); });
         document.getElementById('unreadTab').addEventListener('click', () => { this._s('click_tab_unread'); this.switchTab('unread'); });
         document.getElementById('readTab').addEventListener('click', () => { this._s('click_tab_read'); this.switchTab('read'); });
         document.getElementById('favoritesTab').addEventListener('click', () => { this._s('click_tab_favorite'); this.switchTab('favorites'); });
@@ -1269,6 +1437,21 @@ class LinksApp {
             this._s('click_save_link');
             this.handleAddLink(e);
         });
+
+        // Auto-fetch title on URL paste/change
+        const linkUrlInput = document.getElementById('linkUrl');
+        if (linkUrlInput) {
+            const handleUrlUpdate = (e) => {
+                // Short timeout to allow paste to complete or just use current value
+                setTimeout(() => {
+                    const url = linkUrlInput.value;
+                    if (url) this.fetchUrlTitle(url);
+                }, 10);
+            };
+            
+            linkUrlInput.addEventListener('paste', handleUrlUpdate);
+            linkUrlInput.addEventListener('change', handleUrlUpdate); // Fallback for manual entry
+        }
 
         // Delegation for dynamic elements
         document.addEventListener('click', (e) => {
@@ -1294,12 +1477,34 @@ class LinksApp {
              }
         });
 
-        document.getElementById('addLinkForm').addEventListener('submit', (e) => this.handleAddLink(e));
-        document.getElementById('unreadTab').addEventListener('click', () => this.switchTab('unread'));
-        document.getElementById('readTab').addEventListener('click', () => this.switchTab('read'));
-        document.getElementById('favoritesTab').addEventListener('click', () => this.switchTab('favorites'));
-        
         this.setupCustomDropdown();
+        this.setupSearchAndFilter();
+    }
+
+    setupSearchAndFilter() {
+        const searchInput = document.getElementById('searchInput');
+        const categoryNav = document.getElementById('categoryNav');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchQuery = e.target.value.toLowerCase();
+                this.renderLinks();
+            });
+        }
+
+        if (categoryNav) {
+            categoryNav.addEventListener('click', (e) => {
+                if (e.target.classList.contains('category-item')) {
+                    // Update active state UI
+                    document.querySelectorAll('.category-item').forEach(item => item.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    // Update state
+                    this.categoryFilter = e.target.dataset.category;
+                    this.renderLinks();
+                }
+            });
+        }
     }
 
     setupCustomDropdown() {
@@ -1358,17 +1563,13 @@ class LinksApp {
         }
 
         this.clearAddLinkForm();
-        this.showStatus('Saving link...', 'info');
-
         try {
             await this.apiRequest('/links', {
                 method: 'POST',
                 body: JSON.stringify({ url, title, category })
             });
-            this.showStatus('Link saved successfully!', 'success');
             await this.loadLinks(true);
         } catch (error) {
-            this.showStatus('Link saved successfully!', 'success');
             await this.loadLinks(true);
         }
     }
@@ -1419,151 +1620,201 @@ class LinksApp {
     renderLinks() {
         const linksContainer = document.getElementById('links');
         
-        // Filter links first to check if we have any for the current tab
-        const filteredLinks = this.links.filter(link => {
-            if (this.currentTab === 'read') {
-                return link.isRead === 1;
-            } else if (this.currentTab === 'favorites') {
-                return link.isFavorite === 1;
+        let linksToFilter = this.links;
+
+        // 1. Fuzzy Search Filter (if query exists)
+        if (this.searchQuery) {
+            const options = {
+                keys: [
+                    { name: 'title', weight: 0.7 },
+                    { name: 'category', weight: 0.2 },
+                    { name: 'url', weight: 0.1 }
+                ],
+                threshold: 0.4,
+                ignoreLocation: true 
+            };
+            
+            if (window.Fuse) {
+                const fuse = new Fuse(linksToFilter, options);
+                const results = fuse.search(this.searchQuery);
+                linksToFilter = results.map(result => result.item);
             } else {
-                return !link.isRead || link.isRead === 0;
+                const query = this.searchQuery;
+                linksToFilter = linksToFilter.filter(link => 
+                    (link.title || '').toLowerCase().includes(query) || 
+                    (link.url || '').toLowerCase().includes(query)
+                );
             }
+        }
+
+        // 2. Tab & Category Filter
+        const filteredLinks = linksToFilter.filter(link => {
+            // Tab Filter
+            let tabMatch = false;
+            if (this.currentTab === 'all') {
+                tabMatch = true;
+            }
+            else if (this.currentTab === 'read') {
+                tabMatch = link.isRead === 1;
+            } else if (this.currentTab === 'favorites') {
+                tabMatch = link.isFavorite === 1;
+            } else {
+                tabMatch = !link.isRead || link.isRead === 0;
+            }
+            if (!tabMatch) return false;
+
+            // Category Filter
+            if (this.categoryFilter !== 'all') {
+                const cat = (link.category || 'general').toLowerCase();
+                if (cat !== this.categoryFilter.toLowerCase()) {
+                    return false;
+                }
+            }
+
+            return true;
         });
 
-        // Only show empty state if we have no links at all, not just for the current tab
-        if (this.links.length === 0) {
-            linksContainer.innerHTML = \`
-                <div class="empty-state">
-                    <div class="empty-description">Start curating</div>
-                </div>
-            \`;
-            return;
-        }
-
-        // If no links for current tab, show a different message or just empty content
+        // Toggle Empty State Visibility
+        const emptyState = document.querySelector('.empty-state');
+        
+        // If simply no links at all (and strict check?)
+        // Actually, let's just render content.
+        
         if (filteredLinks.length === 0) {
-            let emptyMessage = '';
-            if (this.currentTab === 'read') {
-                emptyMessage = 'No read links yet';
-            } else if (this.currentTab === 'favorites') {
-                emptyMessage = 'No favorite links yet';
-            } else {
-                emptyMessage = 'No unread links';
-            }
-            
-            linksContainer.innerHTML = \`
-                <div class="tab-empty-state">
-                    <div class="tab-empty-message">\${emptyMessage}</div>
+             let emptyMessage = 'No links found';
+             if (this.currentTab === 'all') emptyMessage = 'No links found';
+             else if (this.currentTab === 'read') emptyMessage = 'No read links';
+             else if (this.currentTab === 'favorites') emptyMessage = 'No favorites yet';
+             else if (this.currentTab === 'unread') emptyMessage = 'All caught up!';
+             
+             linksContainer.innerHTML = \`
+                <div class="empty-state">
+                    <div class="empty-icon-placeholder">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                    </div>
+                    <div class="empty-title">\${emptyMessage}</div>
+                    <div class="empty-description">Save a link to get started</div>
                 </div>
             \`;
-            return;
-        }
+    return;
+}
 
-        const sortedLinks = filteredLinks.sort((a, b) => new Date(b.timestamp || b.dateAdded) - new Date(a.timestamp || a.dateAdded));
+const sortedLinks = filteredLinks.sort((a, b) => new Date(b.timestamp || b.dateAdded) - new Date(a.timestamp || a.dateAdded));
 
-        linksContainer.innerHTML = sortedLinks.map(link => \`
-            <div class="link-item \${link.isPending ? 'pending' : ''}" data-id="\${link.id}">
-                <div class="link-content">
-                    <h3 class="link-title">
-                        <a href="\${link.url}" target="_blank" rel="noopener noreferrer">\${link.title}</a>
+linksContainer.innerHTML = sortedLinks.map(link => {
+    const domain = this.extractDomainFromUrl(link.url);
+    const isRead = link.isRead === 1;
+    const category = link.category || 'Other';
 
-                        \${link.isPending ? '<span class="pending-indicator">Saving...</span>' : ''}
+        return \`
+            <div class="link-card" data-id="\${link.id}">
+                <div class="card-top">
+                    <span class="card-badge badge-\${category}">\${category}</span>
+                    <button class="star-btn \${link.isFavorite ? 'active' : ''}" 
+                            onclick="app.toggleFavorite('\${link.id}', \${!link.isFavorite})"
+                            title="\${link.isFavorite ? 'Remove from favorites' : 'Favorite'}">
+                        \${link.isFavorite ? '★' : '☆'}
+                    </button>
+                </div>
+                
+                <div class="card-main">
+                    <h3 class="card-title">
+                        <a href="\${link.url}" target="_blank" rel="noopener noreferrer">\${link.title || domain}</a>
+                        \${link.isPending ? '<span class="pending-indicator">...</span>' : ''}
                     </h3>
-                    <div class="link-meta">
-                        <span class="link-category">\${link.category || 'general'}</span>
+                    <div class="card-domain">\${domain}</div>
+                </div>
+                
+                <div class="card-footer">
+                    \${!isRead
+            ? \`<button class="mark-read-btn" onclick="app.markAsRead('\${link.id}', true)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Mark read
+            </button>\`
+            : \`<button class="mark-read-btn is-read" onclick="app.markAsRead('\${link.id}', false)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px"><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Read
+            </button>\`
+        }
+                    
+                    <div class="card-actions">
+                        <button class="icon-btn" onclick="app.copyLink('\${link.url}')" title="Copy">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                        <button class="icon-btn" onclick="app.deleteLink('\${link.id}')" title="Delete">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
                     </div>
                 </div>
-                <div class="link-actions">
-                    \${this.currentTab === 'unread' || (this.currentTab === 'favorites' && (!link.isRead || link.isRead === 0)) ? \`<button class="action-btn mark-read" onclick="app.markAsRead('\${link.id}', true)" title="Mark as read">Mark as read</button>\` : ''}
-                    \${this.currentTab === 'read' ? \`<button class="action-btn mark-unread" onclick="app.markAsRead('\${link.id}', false)" title="Mark as unread">Mark as unread</button>\` : ''}
-                    <button class="action-btn copy-btn" onclick="app.copyLink('\${link.url}')" title="Copy link" \${link.isPending ? 'disabled' : ''}>
-                        Copy
-                    </button>
-                    <button class="action-btn delete-btn" onclick="app.deleteLink('\${link.id}')" title="Delete link" \${link.isPending ? 'disabled' : ''}>
-                        Delete
-                    </button>
-                    <button class="star-icon \${link.isFavorite ? 'favorite' : ''}"
-                            onclick="app.toggleFavorite('\${link.id}', \${!link.isFavorite})"
-                            title="\${link.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">★</button>
-                </div>
             </div>
-        \`).join('');
+        \`;
+}).join('');
     }
 
+
     async copyLink(url) {
-        try {
-            await navigator.clipboard.writeText(url);
-            this.showStatus('Link copied to clipboard', 'success');
-        } catch (error) {
-            const textArea = document.createElement('textarea');
-            textArea.value = url;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            this.showStatus('Link copied to clipboard', 'success');
-        }
+    try {
+        await navigator.clipboard.writeText(url);
+    } catch (error) {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+    }
     }
 
     async deleteLink(linkId) {
-        this.showStatus('Deleting link...', 'info');
-
-        try {
-            await this.apiRequest('/links?id=' + linkId, {
-                method: 'DELETE'
-            });
-            this.showStatus('Link deleted successfully', 'success');
-            await this.loadLinks(true);
-        } catch (error) {
-            this.showStatus('Link deleted successfully', 'success');
-            await this.loadLinks(true);
-        }
+    try {
+        await this.apiRequest('/links?id=' + linkId, {
+            method: 'DELETE'
+        });
+        await this.loadLinks(true);
+    } catch (error) {
+        await this.loadLinks(true);
     }
+}
 
-    switchTab(tab) {
-        this.currentTab = tab;
-        
-        // Update URL hash to preserve tab state on refresh
-        window.location.hash = tab === 'unread' ? '' : tab;
-        
-        document.getElementById('unreadTab').classList.toggle('active', tab === 'unread');
-        document.getElementById('readTab').classList.toggle('active', tab === 'read');
-        document.getElementById('favoritesTab').classList.toggle('active', tab === 'favorites');
-        
-        this.renderLinks();
-    }
+switchTab(tab) {
+    this.currentTab = tab;
+
+    // Update URL hash to preserve tab state on refresh
+    window.location.hash = tab === 'all' ? '' : tab;
+
+    document.getElementById('allTab').classList.toggle('active', tab === 'all');
+    document.getElementById('unreadTab').classList.toggle('active', tab === 'unread');
+    document.getElementById('readTab').classList.toggle('active', tab === 'read');
+    document.getElementById('favoritesTab').classList.toggle('active', tab === 'favorites');
+
+    this.renderLinks();
+}
 
     async markAsRead(linkId, isRead = true) {
-        this.showStatus('Updating...', 'info');
-
-        try {
-            await this.apiRequest('/links/mark-read', {
-                method: 'POST',
-                body: JSON.stringify({ linkId, isRead: isRead ? 1 : 0 })
-            });
-            this.showStatus(isRead ? 'Marked as read' : 'Marked as unread', 'success');
-            await this.loadLinks(true);
-        } catch (error) {
-            this.showStatus(isRead ? 'Marked as read' : 'Marked as unread', 'success');
-            await this.loadLinks(true);
-        }
+    try {
+        await this.apiRequest('/links/mark-read', {
+            method: 'POST',
+            body: JSON.stringify({ linkId, isRead: isRead ? 1 : 0 })
+        });
+        await this.loadLinks(true);
+    } catch (error) {
+        await this.loadLinks(true);
     }
+}
 
     async toggleFavorite(linkId, isFavorite) {
-        this.showStatus('Updating...', 'info');
-
-        try {
-            await this.apiRequest('/links/toggle-favorite', {
-                method: 'POST',
-                body: JSON.stringify({ linkId, isFavorite: isFavorite ? 1 : 0 })
-            });
-            this.showStatus(isFavorite ? 'Added to favorites' : 'Removed from favorites', 'success');
-            await this.loadLinks(true);
-        } catch (error) {
-            this.showStatus(isFavorite ? 'Added to favorites' : 'Removed from favorites', 'success');
-            await this.loadLinks(true);
-        }
+    try {
+        await this.apiRequest('/links/toggle-favorite', {
+            method: 'POST',
+            body: JSON.stringify({ linkId, isFavorite: isFavorite ? 1 : 0 })
+        });
+        await this.loadLinks(true);
+    } catch (error) {
+        await this.loadLinks(true);
     }
+}
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1603,593 +1854,593 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 function getLandingHTML() {
-    return `<!DOCTYPE html>
-<html lang="en">
+    return `
+    <html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>kurate - For the curious</title>
-    <meta name="description" content="Your personal library of ideas from across the web. You are the curator.">
-    <link rel="icon" type="image/png" href="/favicon.png?v=2">
+        <head>
+            <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>kurate - For the curious</title>
+                    <meta name="description" content="Your personal library of ideas from across the web. You are the curator.">
+                        <link rel="icon" type="image/png" href="/favicon.png?v=2">
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://kurate.net/">
-    <meta property="og:site_name" content="kurate">
-    <meta property="og:title" content="kurate - For the curious">
-    <meta property="og:description" content="Your personal library of ideas from across the web. You are the curator.">
-    <meta property="og:image" content="https://kurate.net/og-image.png">
-    <meta property="og:image:secure_url" content="https://kurate.net/og-image.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
+                            <!-- Open Graph / Facebook -->
+                            <meta property="og:type" content="website">
+                                <meta property="og:url" content="https://kurate.net/">
+                                    <meta property="og:site_name" content="kurate">
+                                        <meta property="og:title" content="kurate - For the curious">
+                                            <meta property="og:description" content="Your personal library of ideas from across the web. You are the curator.">
+                                                <meta property="og:image" content="https://kurate.net/og-image.png">
+                                                    <meta property="og:image:secure_url" content="https://kurate.net/og-image.png">
+                                                        <meta property="og:image:type" content="image/png">
+                                                            <meta property="og:image:width" content="1200">
+                                                                <meta property="og:image:height" content="630">
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://kurate.net/">
-    <meta property="twitter:title" content="kurate - For the curious">
-    <meta property="twitter:description" content="Your personal library of ideas from across the web. You are the curator.">
-    <meta property="twitter:image" content="https://kurate.net/og-image.png">
+                                                                    <!-- Twitter -->
+                                                                    <meta property="twitter:card" content="summary_large_image">
+                                                                        <meta property="twitter:url" content="https://kurate.net/">
+                                                                            <meta property="twitter:title" content="kurate - For the curious">
+                                                                                <meta property="twitter:description" content="Your personal library of ideas from across the web. You are the curator.">
+                                                                                    <meta property="twitter:image" content="https://kurate.net/og-image.png">
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap"
-        rel="stylesheet">
-    <style>
-        :root {
-            --orange: #EA580C;
+                                                                                        <script src="https://cdn.tailwindcss.com"></script>
+                                                                                        <link rel="preconnect" href="https://fonts.googleapis.com">
+                                                                                            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                                                                                                <link
+                                                                                                    href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap"
+                                                                                                    rel="stylesheet">
+                                                                                                    <style>
+                                                                                                        :root {
+                                                                                                            --orange: #D2622A;
         }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            background-color: #FDFAF8;
-            /* Subtle warm white */
-            color: #1a1a1a;
+                                                                                                         body {
+                                                                                                             font-family: 'Inter', sans-serif;
+                                                                                                         -webkit-font-smoothing: antialiased;
+                                                                                                         background-color: #FDFAF8;
+                                                                                                         /* Subtle warm white */
+                                                                                                         color: #1a1a1a;
         }
 
-        .font-serif {
-            font-family: 'Instrument Serif', serif;
+                                                                                                         .font-serif {
+                                                                                                             font-family: 'Instrument Serif', serif;
         }
-    </style>
-</head>
+                                                                                                    </style>
+                                                                                                </head>
 
-<body class="min-h-screen flex flex-col overflow-x-hidden">
+                                                                                                <body class="min-h-screen flex flex-col overflow-x-hidden">
 
-    <!-- Navbar -->
-    <nav class="w-full px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
-        <div class="flex items-center gap-2">
-            <!-- Black Circle with White Star -->
-            <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs">
-                ★
-            </div>
-            <span class="font-bold text-2xl tracking-tight">kurate</span>
-        </div>
-        <div class="flex items-center gap-4">
+                                                                                                    <!-- Navbar -->
+                                                                                                    <nav href="https://kurate.net" class="w-full px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
+                                                                                                        <a href="https://kurate.net" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                                                                                                            <!-- Black Circle with White K -->
+                                                                                                            <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                                                                                                K
+                                                                                                            </div>
+                                                                                                            <span class="font-bold text-2xl tracking-tight">kurate</span>
+                                                                                                        </a>
+                                                                                                        <div class="flex items-center gap-4">
 
-        </div>
-    </nav>
+                                                                                                        </div>
+                                                                                                    </nav>
 
-    <!-- Main Content -->
-    <main class="flex flex-col lg:flex-row items-center justify-between max-w-7xl mx-auto px-8 pt-8 lg:pt-12 pb-0 gap-16">
+                                                                                                    <!-- Main Content -->
+                                                                                                    <main class="flex flex-col lg:flex-row items-center justify-between max-w-7xl mx-auto px-8 pt-8 lg:pt-12 pb-0 gap-16">
 
-        <!-- Left Text -->
-        <div class="lg:w-3/5 max-w-3xl">
-            <h1 class="text-4xl lg:text-5xl leading-tight font-serif text-[#1C1917] mb-8 tracking-tight">
-                Your personal library of ideas from across the web.<br>
-                <span class="text-[#D94E28]">You are curator.</span>
-            </h1>
+                                                                                                        <!-- Left Text -->
+                                                                                                        <div class="lg:w-3/5 max-w-3xl">
+                                                                                                            <h1 class="text-4xl lg:text-5xl leading-tight font-serif text-[#1C1917] mb-8 tracking-tight">
+                                                                                                                Your personal library of ideas from across the web.<br>
+                                                                                                                    <span class="text-[#D2622A]">You are curator.</span>
+                                                                                                            </h1>
 
-            <p class="text-lg text-gray-600 leading-relaxed max-w-2xl mb-10">
-                <span class="font-bold italic">kurate</span> is your personal library for collecting and organizing the
-                best content from across
-                the
-                web.<br><br>
-                Save articles, videos, and podcasts in one beautiful, simplified space.
-            </p>
+                                                                                                            <p class="text-lg text-gray-600 leading-relaxed max-w-2xl mb-10">
+                                                                                                                <span class="font-bold italic">kurate</span> is your personal library for collecting and organizing the
+                                                                                                                best content from across
+                                                                                                                the
+                                                                                                                web.<br><br>
+                                                                                                                    Save articles, videos, and podcasts in one beautiful, simplified space.
+                                                                                                                </p>
 
-            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <button onclick="openAuthModal()"
-                    class="group bg-[#1C1917] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#D94E28] transition-all duration-300 flex items-center gap-2">
-                    Start Curating
-                    <span class="group-hover:translate-x-1 transition-transform">→</span>
-                </button>
-                <button onclick="openSignupModal()"
-                    class="group bg-[#D94E28] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#B73D1E] transition-all duration-300 flex items-center gap-2">
-                    Join kurate!
-                </button>
-            </div>
+                                                                                                                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                                                                                                        <button onclick="openAuthModal()"
+                                                                                                                            class="group bg-[#1C1917] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#D2622A] transition-all duration-300 flex items-center gap-2">
+                                                                                                                            Start Curating
+                                                                                                                            <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                                                                                                        </button>
+                                                                                                                        <button onclick="openSignupModal()"
+                                                                                                                            class="group bg-[#D2622A] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#B34E1F] transition-all duration-300 flex items-center gap-2">
+                                                                                                                            Join kurate!
+                                                                                                                        </button>
+                                                                                                                    </div>
 
-            <!-- Extension Download Links -->
-            <div class="mt-12 pt-8 border-t border-gray-100 flex flex-wrap gap-4 items-center">
-                <a href="https://chrome.google.com/webstore/detail/kurate/akbifaapjhdkeknembooeihedinecbfi" target="_blank" 
-                    class="group flex items-center gap-3 px-6 py-4 bg-white rounded-[24px] border border-[#F5F5F5] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-300">
-                    <div class="w-8 h-8 flex items-center justify-center">
-                        <img src="/Google_Chrome_icon_(February_2022).svg.webp" alt="Chrome Logo" class="w-full h-full object-contain">
-                    </div>
-                    <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Chrome Extension</span>
-                </a>
+                                                                                                                    <!-- Extension Download Links -->
+                                                                                                                    <div class="mt-12 pt-8 border-t border-gray-100 flex flex-wrap gap-4 items-center">
+                                                                                                                        <a href="https://chrome.google.com/webstore/detail/kurate/akbifaapjhdkeknembooeihedinecbfi" target="_blank"
+                                                                                                                            class="group flex items-center gap-3 px-6 py-4 bg-white rounded-[24px] border border-[#F5F5F5] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-300">
+                                                                                                                            <div class="w-8 h-8 flex items-center justify-center">
+                                                                                                                                <img src="/Google_Chrome_icon_(February_2022).svg.webp" alt="Chrome Logo" class="w-full h-full object-contain">
+                                                                                                                            </div>
+                                                                                                                            <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D2622A] transition-colors leading-none">Chrome Extension</span>
+                                                                                                                        </a>
 
-                <a href="https://addons.mozilla.org/en-US/firefox/addon/kurate/" target="_blank" 
-                    class="group flex items-center gap-3 px-6 py-4 bg-white rounded-[24px] border border-[#F5F5F5] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-300">
-                    <div class="w-8 h-8 flex items-center justify-center">
-                        <img src="/Firefox_logo,_2019.svg.png" alt="Firefox Logo" class="w-full h-full object-contain">
-                    </div>
-                    <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D94E28] transition-colors leading-none">Firefox Extension</span>
-                </a>
-            </div>
-        </div>
+                                                                                                                        <a href="https://addons.mozilla.org/en-US/firefox/addon/kurate/" target="_blank"
+                                                                                                                            class="group flex items-center gap-3 px-6 py-4 bg-white rounded-[24px] border border-[#F5F5F5] shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-lg transition-all duration-300">
+                                                                                                                            <div class="w-8 h-8 flex items-center justify-center">
+                                                                                                                                <img src="/Firefox_logo,_2019.svg.png" alt="Firefox Logo" class="w-full h-full object-contain">
+                                                                                                                            </div>
+                                                                                                                            <span class="text-sm font-bold text-[#1C1917] group-hover:text-[#D2622A] transition-colors leading-none">Firefox Extension</span>
+                                                                                                                        </a>
+                                                                                                                    </div>
+                                                                                                                </div>
 
-        <!-- Right Visual -->
-        <div class="lg:w-2/5 flex justify-center lg:justify-end relative">
-            <!-- Card Container -->
-            <div class="relative group transform rotate-[2deg] hover:rotate-0 transition-all duration-500 ease-out">
-                <div
-                    class="w-full max-w-[380px] aspect-[380/520] bg-black rounded-[2rem] overflow-hidden relative shadow-2xl shadow-gray-200">
-                    <!-- Image -->
-                    <img src="/minimalist_living_woodcut.png" alt="Minimalist Living Art"
-                        class="w-full h-full object-cover opacity-90">
+                                                                                                                <!-- Right Visual -->
+                                                                                                                <div class="lg:w-2/5 flex justify-center lg:justify-end relative">
+                                                                                                                    <!-- Card Container -->
+                                                                                                                    <div class="relative group transform rotate-[2deg] hover:rotate-0 transition-all duration-500 ease-out">
+                                                                                                                        <div
+                                                                                                                            class="w-full max-w-[380px] aspect-[380/520] bg-black rounded-[2rem] overflow-hidden relative shadow-2xl shadow-gray-200">
+                                                                                                                            <!-- Image -->
+                                                                                                                            <img src="/minimalist_living_woodcut.png" alt="Minimalist Living Art"
+                                                                                                                                class="w-full h-full object-cover opacity-90">
 
-                    <!-- Overlay Text -->
-                    <div class="absolute bottom-6 left-6 z-10">
-                        <h3 class="font-serif text-white text-2xl italic tracking-wide drop-shadow-md">"kurate - For the curious"</h3>
-                    </div>
+                                                                                                                                <!-- Overlay Text -->
+                                                                                                                                <div class="absolute bottom-6 left-6 z-10">
+                                                                                                                                    <h3 class="font-serif text-white text-2xl italic tracking-wide drop-shadow-md">"kurate - For the curious"</h3>
+                                                                                                                                </div>
 
-                    <!-- Gradient Overlay for text readability -->
-                    <div
-                        class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
-                    </div>
-                </div>
-            </div>
+                                                                                                                                <!-- Gradient Overlay for text readability -->
+                                                                                                                                <div
+                                                                                                                                    class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
+                                                                                                                                </div>
+                                                                                                                        </div>
+                                                                                                                    </div>
 
-            <!-- Background Glow -->
-            <div
-                class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-orange-100/50 rounded-full blur-[100px] -z-10">
-            </div>
-        </div>
+                                                                                                                    <!-- Background Glow -->
+                                                                                                                    <div
+                                                                                                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-orange-100/50 rounded-full blur-[100px] -z-10">
+                                                                                                                    </div>
+                                                                                                                </div>
 
-    </main>
+                                                                                                            </main>
 
-    <!-- Simple Footer -->
-    <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-6 text-sm text-gray-400">
-        <div class="flex flex-col sm:flex-row items-center gap-6">
-            <span>© 2026 kurate. All rights reserved.</span>
-            <a href="#" onclick="event.preventDefault(); openPrivacyModal()" class="hover:text-gray-600 transition-colors">Privacy Policy</a>
-        </div>
-        <a href="#" onclick="event.preventDefault(); openContactModal()" class="hover:text-gray-600 transition-colors">Contact</a>
-    </footer>
+                                                                                                            <!-- Simple Footer -->
+                                                                                                            <footer class="max-w-7xl mx-auto px-8 py-12 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-6 text-sm text-gray-400">
+                                                                                                                <div class="flex flex-col sm:flex-row items-center gap-6">
+                                                                                                                    <span>© 2026 kurate. All rights reserved.</span>
+                                                                                                                    <a href="#" onclick="event.preventDefault(); openPrivacyModal()" class="hover:text-gray-600 transition-colors">Privacy Policy</a>
+                                                                                                                </div>
+                                                                                                                <a href="#" onclick="event.preventDefault(); openContactModal()" class="hover:text-gray-600 transition-colors">Contact</a>
+                                                                                                            </footer>
 
-    <!-- Preload Fonts to prevent FOUT layout shift -->
-    <script>
+                                                                                                            <!-- Preload Fonts to prevent FOUT layout shift -->
+                                                                                                            <script>
         document.fonts.ready.then(() => {
-            document.body.classList.add('fonts-loaded');
+                                                                                                                    document.body.classList.add('fonts-loaded');
         });
-    </script>
-    <!-- Auth Modal -->
-    <div id="authModal" class="fixed inset-0 z-50 hidden opacity-0 transition-opacity duration-300">
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeAuthModal()"></div>
+                                                                                                            </script>
+                                                                                                            <!-- Auth Modal -->
+                                                                                                            <div id="authModal" class="fixed inset-0 z-50 hidden opacity-0 transition-opacity duration-300">
+                                                                                                                <!-- Backdrop -->
+                                                                                                                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeAuthModal()"></div>
 
-        <!-- Modal Content -->
-        <div class="relative min-h-screen flex items-center justify-center p-4">
-            <div
-                class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 relative transform scale-95 transition-all duration-300 translate-y-4">
-                <!-- Close Button -->
-                <button onclick="closeAuthModal()" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                        </path>
-                    </svg>
-                </button>
+                                                                                                                <!-- Modal Content -->
+                                                                                                                <div class="relative min-h-screen flex items-center justify-center p-4">
+                                                                                                                    <div
+                                                                                                                        class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 relative transform scale-95 transition-all duration-300 translate-y-4">
+                                                                                                                        <!-- Close Button -->
+                                                                                                                        <button onclick="closeAuthModal()" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
+                                                                                                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                                                                                                                                </path>
+                                                                                                                            </svg>
+                                                                                                                        </button>
 
-                <!-- Auth Container -->
-                <div id="modalAuthContainer">
-                    <div class="text-center mb-8">
-                        <h2 id="modalTitle" class="text-3xl font-serif text-[#1C1917] mb-3">Start Curating</h2>
-                        <p id="modalSubtitle" class="text-gray-500"></p>
-                    </div>
+                                                                                                                        <!-- Auth Container -->
+                                                                                                                        <div id="modalAuthContainer">
+                                                                                                                            <div class="text-center mb-8">
+                                                                                                                                <h2 id="modalTitle" class="text-3xl font-serif text-[#1C1917] mb-3">Start Curating</h2>
+                                                                                                                                <p id="modalSubtitle" class="text-gray-500"></p>
+                                                                                                                            </div>
 
-                    <form id="modalAuthForm" onsubmit="handleAuthSubmit(event)">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
-                                <input type="text" id="modalUsername"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
-                                    placeholder="Enter your username" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Password</label>
-                                <input type="password" id="modalPassword"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
-                                    placeholder="Enter your password" required>
-                            </div>
-                        </div>
-                        
-                        <div id="authError" class="hidden mt-4 text-center text-red-500 text-sm"></div>
+                                                                                                                            <form id="modalAuthForm" onsubmit="handleAuthSubmit(event)">
+                                                                                                                                <div class="space-y-4">
+                                                                                                                                    <div>
+                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
+                                                                                                                                        <input type="text" id="modalUsername"
+                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                                                                                                                            placeholder="Enter your username" required>
+                                                                                                                                    </div>
+                                                                                                                                    <div>
+                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Password</label>
+                                                                                                                                        <input type="password" id="modalPassword"
+                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                                                                                                                            placeholder="Enter your password" required>
+                                                                                                                                    </div>
+                                                                                                                                </div>
 
-                        <button type="submit"
-                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D94E28] transition-all duration-300 shadow-lg shadow-orange-500/20">
-                            <span id="modalSubmitText">Sign In</span>
-                        </button>
-                    </form>
+                                                                                                                                <div id="authError" class="hidden mt-4 text-center text-red-500 text-sm"></div>
 
-                    <div class="mt-8 text-center text-sm text-gray-500">
-                        <span id="modalToggleText">Don't have an account?</span>
-                        <button onclick="toggleAuthMode()"
-                            class="text-[#D94E28] font-bold hover:underline ml-1 decoration-2 underline-offset-2 transition-colors"
-                            id="modalToggleLink">Join Kurate</button>
-                    </div>
+                                                                                                                                <button type="submit"
+                                                                                                                                    class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D2622A] transition-all duration-300 shadow-lg shadow-orange-500/20">
+                                                                                                                                    <span id="modalSubmitText">Sign In</span>
+                                                                                                                                </button>
+                                                                                                                            </form>
 
-                    <div class="mt-4 text-center">
-                        <button onclick="toggleResetMode()" class="text-sm text-gray-400 hover:text-gray-600 transition-colors">Forgot your
-                            password?</button>
-                    </div>
-                </div>
+                                                                                                                            <div class="mt-8 text-center text-sm text-gray-500">
+                                                                                                                                <span id="modalToggleText">Don't have an account?</span>
+                                                                                                                                <button onclick="toggleAuthMode()"
+                                                                                                                                    class="text-[#D2622A] font-bold hover:underline ml-1 decoration-2 underline-offset-2 transition-colors"
+                                                                                                                                    id="modalToggleLink">Join Kurate</button>
+                                                                                                                            </div>
 
-                <!-- Reset Password Container -->
-                <div id="modalResetContainer" class="hidden">
-                    <div class="text-center mb-8">
-                        <h2 class="text-3xl font-serif text-[#1C1917] mb-3">Reset Password</h2>
-                        <p class="text-gray-500">Enter your username and new password</p>
-                    </div>
+                                                                                                                            <div class="mt-4 text-center">
+                                                                                                                                <button onclick="toggleResetMode()" class="text-sm text-gray-400 hover:text-gray-600 transition-colors">Forgot your
+                                                                                                                                    password?</button>
+                                                                                                                            </div>
+                                                                                                                        </div>
 
-                    <form id="modalResetForm" onsubmit="handleResetSubmit(event)">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
-                                <input type="text" id="resetUsername"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
-                                    placeholder="Enter your username" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">New Password</label>
-                                <input type="password" id="newPassword"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
-                                    placeholder="Min 6 characters" required>
-                            </div>
-                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Confirm Password</label>
-                                <input type="password" id="confirmPassword"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
-                                    placeholder="Confirm new password" required>
-                            </div>
-                        </div>
+                                                                                                                        <!-- Reset Password Container -->
+                                                                                                                        <div id="modalResetContainer" class="hidden">
+                                                                                                                            <div class="text-center mb-8">
+                                                                                                                                <h2 class="text-3xl font-serif text-[#1C1917] mb-3">Reset Password</h2>
+                                                                                                                                <p class="text-gray-500">Enter your username and new password</p>
+                                                                                                                            </div>
 
-                        <div id="resetError" class="hidden mt-4 text-center text-red-500 text-sm"></div>
-                        <div id="resetSuccess" class="hidden mt-4 text-center text-green-600 text-sm"></div>
+                                                                                                                            <form id="modalResetForm" onsubmit="handleResetSubmit(event)">
+                                                                                                                                <div class="space-y-4">
+                                                                                                                                    <div>
+                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
+                                                                                                                                        <input type="text" id="resetUsername"
+                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                                                                                                                            placeholder="Enter your username" required>
+                                                                                                                                    </div>
+                                                                                                                                    <div>
+                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">New Password</label>
+                                                                                                                                        <input type="password" id="newPassword"
+                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                                                                                                                            placeholder="Min 6 characters" required>
+                                                                                                                                    </div>
+                                                                                                                                    <div>
+                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Confirm Password</label>
+                                                                                                                                        <input type="password" id="confirmPassword"
+                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                                                                                                                            placeholder="Confirm new password" required>
+                                                                                                                                    </div>
+                                                                                                                                </div>
 
-                        <button type="submit"
-                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D94E28] transition-all duration-300 shadow-lg shadow-orange-500/20">
-                            Reset Password
-                        </button>
-                    </form>
+                                                                                                                                <div id="resetError" class="hidden mt-4 text-center text-red-500 text-sm"></div>
+                                                                                                                                <div id="resetSuccess" class="hidden mt-4 text-center text-green-600 text-sm"></div>
 
-                    <div class="mt-8 text-center">
-                        <button onclick="toggleResetMode()" class="text-sm text-gray-500 hover:text-[#1C1917] transition-colors flex items-center justify-center gap-2 mx-auto">
-                            <span>←</span> Back to Sign In
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+                                                                                                                                <button type="submit"
+                                                                                                                                    class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D2622A] transition-all duration-300 shadow-lg shadow-orange-500/20">
+                                                                                                                                    Reset Password
+                                                                                                                                </button>
+                                                                                                                            </form>
 
-    <!-- Privacy Modal -->
-    <div id="privacyModal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closePrivacyModal()"></div>
-        <div class="relative min-h-screen flex items-center justify-center p-4">
-            <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col relative transform scale-95 transition-all duration-300 translate-y-4">
-                <div class="p-10 pb-4 shrink-0 flex justify-between items-start">
-                     <h2 class="text-3xl font-bold text-[#1C1917]">Privacy Policy</h2>
-                     <button onclick="closePrivacyModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-                
-                <div class="p-10 pt-0 overflow-y-auto flex-1 custom-scrollbar">
-                    <div class="font-sans max-w-none">
-                        <p class="text-gray-600 mb-4">Last Updated: February 2026</p>
-                        
-                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">1. Information We Collect</h3>
-                        <p class="text-gray-600 mb-4">kurate is designed to be a personal curation tool. We collect your username to manage your personal library. When you use the kurate extension, we save the titles, URLs, and categories of the links you explicitly choose to save.</p>
-                        
-                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">2. How We Use Information</h3>
-                        <p class="text-gray-600 mb-4">Your data is strictly used to provide the link-saving service. We do not track your browsing history and only access data when the extension is activated by you.</p>
-                        
-                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">3. Data Storage</h3>
-                        <p class="text-gray-600 mb-4">Your bookmarks are stored securely on our cloud servers. The browser extension stores your authentication token locally to maintain your session.</p>
-                        
-                        <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">4. Sharing</h3>
-                        <p class="text-gray-600 mb-4">We do not sell, trade, or share your personal information with third parties.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+                                                                                                                            <div class="mt-8 text-center">
+                                                                                                                                <button onclick="toggleResetMode()" class="text-sm text-gray-500 hover:text-[#1C1917] transition-colors flex items-center justify-center gap-2 mx-auto">
+                                                                                                                                    <span>←</span> Back to Sign In
+                                                                                                                                </button>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            </div>
 
-    <!-- Contact Modal -->
-    <div id="contactModal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeContactModal()"></div>
-        <div class="relative min-h-screen flex items-center justify-center p-4">
-            <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 relative transform scale-95 transition-all duration-300 translate-y-4">
-                 <button onclick="closeContactModal()" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-                
-                <div class="text-center pt-4 pb-8 font-sans">
-                    <div class="w-16 h-16 bg-orange-100 text-[#D94E28] rounded-full flex items-center justify-center mx-auto mb-6">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-3xl font-bold text-[#1C1917] mb-2">Contact Us</h2>
-                    <p class="text-gray-500 mb-8">We'd love to hear from you</p>
-                    
-                    <a class="inline-flex items-center gap-2 text-xl font-medium text-[#1C1917] hover:text-[#D94E28] transition-colors">
-                        contact@kurate.net
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
+                                                                                                            <!-- Privacy Modal -->
+                                                                                                            <div id="privacyModal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
+                                                                                                                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closePrivacyModal()"></div>
+                                                                                                                <div class="relative min-h-screen flex items-center justify-center p-4">
+                                                                                                                    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col relative transform scale-95 transition-all duration-300 translate-y-4">
+                                                                                                                        <div class="p-10 pb-4 shrink-0 flex justify-between items-start">
+                                                                                                                            <h2 class="text-3xl font-bold text-[#1C1917]">Privacy Policy</h2>
+                                                                                                                            <button onclick="closePrivacyModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                                                                                                                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                                                                                            </button>
+                                                                                                                        </div>
 
-    <script>
-        let isLoginMode = true;
+                                                                                                                        <div class="p-10 pt-0 overflow-y-auto flex-1 custom-scrollbar">
+                                                                                                                            <div class="font-sans max-w-none">
+                                                                                                                                <p class="text-gray-600 mb-4">Last Updated: February 2026</p>
 
-        function openAuthModal() {
+                                                                                                                                <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">1. Information We Collect</h3>
+                                                                                                                                <p class="text-gray-600 mb-4">kurate is designed to be a personal curation tool. We collect your username to manage your personal library. When you use the kurate extension, we save the titles, URLs, and categories of the links you explicitly choose to save.</p>
+
+                                                                                                                                <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">2. How We Use Information</h3>
+                                                                                                                                <p class="text-gray-600 mb-4">Your data is strictly used to provide the link-saving service. We do not track your browsing history and only access data when the extension is activated by you.</p>
+
+                                                                                                                                <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">3. Data Storage</h3>
+                                                                                                                                <p class="text-gray-600 mb-4">Your bookmarks are stored securely on our cloud servers. The browser extension stores your authentication token locally to maintain your session.</p>
+
+                                                                                                                                <h3 class="text-xl font-bold text-[#1C1917] mt-8 mb-3">4. Sharing</h3>
+                                                                                                                                <p class="text-gray-600 mb-4">We do not sell, trade, or share your personal information with third parties.</p>
+                                                                                                                            </div>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            </div>
+
+                                                                                                            <!-- Contact Modal -->
+                                                                                                            <div id="contactModal" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity duration-300">
+                                                                                                                <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeContactModal()"></div>
+                                                                                                                <div class="relative min-h-screen flex items-center justify-center p-4">
+                                                                                                                    <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md p-8 relative transform scale-95 transition-all duration-300 translate-y-4">
+                                                                                                                        <button onclick="closeContactModal()" class="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors">
+                                                                                                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                                                                                        </button>
+
+                                                                                                                        <div class="text-center pt-4 pb-8 font-sans">
+                                                                                                                            <div class="w-16 h-16 bg-orange-100 text-[#FF7034] rounded-full flex items-center justify-center mx-auto mb-6">
+                                                                                                                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                                                                                                                                </svg>
+                                                                                                                            </div>
+                                                                                                                            <h2 class="text-3xl font-bold text-[#1C1917] mb-2">Contact Us</h2>
+                                                                                                                            <p class="text-gray-500 mb-8">We'd love to hear from you</p>
+
+                                                                                                                            <a class="inline-flex items-center gap-2 text-xl font-medium text-[#1C1917] hover:text-[#FF7034] transition-colors">
+                                                                                                                                contact@kurate.net
+                                                                                                                            </a>
+                                                                                                                        </div>
+                                                                                                                    </div>
+                                                                                                                </div>
+                                                                                                            </div>
+
+                                                                                                            <script>
+                                                                                                                let isLoginMode = true;
+
+                                                                                                                function openAuthModal() {
             // Check if user is already logged in
             if (localStorage.getItem('authToken')) {
-                window.location.href = '/home';
-                return;
+                                                                                                                    window.location.href = '/home';
+                                                                                                                return;
             }
 
-            const modal = document.getElementById('authModal');
-            modal.classList.remove('hidden');
-            // Trigger reflow
-            void modal.offsetWidth;
-            modal.classList.remove('opacity-0');
-            modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
-            modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
+                                                                                                                const modal = document.getElementById('authModal');
+                                                                                                                modal.classList.remove('hidden');
+                                                                                                                // Trigger reflow
+                                                                                                                void modal.offsetWidth;
+                                                                                                                modal.classList.remove('opacity-0');
+                                                                                                                modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
+                                                                                                                modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
         }
 
-        function openSignupModal() {
-            isLoginMode = false;
-            updateAuthUI();
-            openAuthModal();
-            // Update URL to reflect signup action
-            window.history.pushState({}, document.title, window.location.pathname + '?action=signup');
+                                                                                                                function openSignupModal() {
+                                                                                                                    isLoginMode = false;
+                                                                                                                updateAuthUI();
+                                                                                                                openAuthModal();
+                                                                                                                // Update URL to reflect signup action
+                                                                                                                window.history.pushState({ }, document.title, window.location.pathname + '?action=signup');
         }
 
-        function closeAuthModal() {
+                                                                                                                function closeAuthModal() {
             const modal = document.getElementById('authModal');
-            modal.classList.add('opacity-0');
-            const content = modal.querySelector('div[class*="scale-100"]');
-            if(content) {
-                content.classList.remove('scale-100', 'translate-y-0');
-                content.classList.add('scale-95', 'translate-y-4');
+                                                                                                                modal.classList.add('opacity-0');
+                                                                                                                const content = modal.querySelector('div[class*="scale-100"]');
+                                                                                                                if(content) {
+                                                                                                                    content.classList.remove('scale-100', 'translate-y-0');
+                                                                                                                content.classList.add('scale-95', 'translate-y-4');
             }
             
             setTimeout(() => {
-                modal.classList.add('hidden');
-                resetForms();
-                // UX: Restore clean URL when modal closes
-                window.history.replaceState({}, document.title, window.location.pathname);
+                                                                                                                    modal.classList.add('hidden');
+                                                                                                                resetForms();
+                                                                                                                // UX: Restore clean URL when modal closes
+                                                                                                                window.history.replaceState({ }, document.title, window.location.pathname);
             }, 300);
         }
 
-        function openPrivacyModal() {
+                                                                                                                function openPrivacyModal() {
             const modal = document.getElementById('privacyModal');
-            modal.classList.remove('hidden');
-            void modal.offsetWidth;
-            modal.classList.remove('opacity-0');
-            modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
-            modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
-            window.history.pushState({}, document.title, window.location.pathname + '?p=privacy');
+                                                                                                                modal.classList.remove('hidden');
+                                                                                                                void modal.offsetWidth;
+                                                                                                                modal.classList.remove('opacity-0');
+                                                                                                                modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
+                                                                                                                modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
+                                                                                                                window.history.pushState({ }, document.title, window.location.pathname + '?p=privacy');
         }
 
-        function closePrivacyModal() {
+                                                                                                                function closePrivacyModal() {
             const modal = document.getElementById('privacyModal');
-            modal.classList.add('opacity-0');
-            const content = modal.querySelector('div[class*="scale-100"]');
-            if(content) {
-                content.classList.remove('scale-100', 'translate-y-0');
-                content.classList.add('scale-95', 'translate-y-4');
+                                                                                                                modal.classList.add('opacity-0');
+                                                                                                                const content = modal.querySelector('div[class*="scale-100"]');
+                                                                                                                if(content) {
+                                                                                                                    content.classList.remove('scale-100', 'translate-y-0');
+                                                                                                                content.classList.add('scale-95', 'translate-y-4');
             }
             setTimeout(() => {
-                modal.classList.add('hidden');
-                window.history.replaceState({}, document.title, window.location.pathname);
+                                                                                                                    modal.classList.add('hidden');
+                                                                                                                window.history.replaceState({ }, document.title, window.location.pathname);
             }, 300);
         }
 
-        function openContactModal() {
+                                                                                                                function openContactModal() {
             const modal = document.getElementById('contactModal');
-            modal.classList.remove('hidden');
-            void modal.offsetWidth;
-            modal.classList.remove('opacity-0');
-            modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
-            modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
+                                                                                                                modal.classList.remove('hidden');
+                                                                                                                void modal.offsetWidth;
+                                                                                                                modal.classList.remove('opacity-0');
+                                                                                                                modal.querySelector('div[class*="scale-95"]').classList.remove('scale-95', 'translate-y-4');
+                                                                                                                modal.querySelector('div[class*="scale-95"]').classList.add('scale-100', 'translate-y-0');
         }
 
-        function closeContactModal() {
+                                                                                                                function closeContactModal() {
             const modal = document.getElementById('contactModal');
-            modal.classList.add('opacity-0');
-            const content = modal.querySelector('div[class*="scale-100"]');
-            if(content) {
-                content.classList.remove('scale-100', 'translate-y-0');
-                content.classList.add('scale-95', 'translate-y-4');
+                                                                                                                modal.classList.add('opacity-0');
+                                                                                                                const content = modal.querySelector('div[class*="scale-100"]');
+                                                                                                                if(content) {
+                                                                                                                    content.classList.remove('scale-100', 'translate-y-0');
+                                                                                                                content.classList.add('scale-95', 'translate-y-4');
             }
             setTimeout(() => {
-                modal.classList.add('hidden');
+                                                                                                                    modal.classList.add('hidden');
             }, 300);
         }
 
-        function resetForms() {
-            document.getElementById('modalAuthForm').reset();
-            document.getElementById('modalResetForm').reset();
-            document.getElementById('authError').classList.add('hidden');
-            document.getElementById('resetError').classList.add('hidden');
-            document.getElementById('resetSuccess').classList.add('hidden');
-            
-            // Reset to login view
-            isLoginMode = true;
-            updateAuthUI();
-            document.getElementById('modalAuthContainer').classList.remove('hidden');
-            document.getElementById('modalResetContainer').classList.add('hidden');
+                                                                                                                function resetForms() {
+                                                                                                                    document.getElementById('modalAuthForm').reset();
+                                                                                                                document.getElementById('modalResetForm').reset();
+                                                                                                                document.getElementById('authError').classList.add('hidden');
+                                                                                                                document.getElementById('resetError').classList.add('hidden');
+                                                                                                                document.getElementById('resetSuccess').classList.add('hidden');
+
+                                                                                                                // Reset to login view
+                                                                                                                isLoginMode = true;
+                                                                                                                updateAuthUI();
+                                                                                                                document.getElementById('modalAuthContainer').classList.remove('hidden');
+                                                                                                                document.getElementById('modalResetContainer').classList.add('hidden');
         }
 
-        function toggleAuthMode() {
-            isLoginMode = !isLoginMode;
-            updateAuthUI();
+                                                                                                                function toggleAuthMode() {
+                                                                                                                    isLoginMode = !isLoginMode;
+                                                                                                                updateAuthUI();
         }
 
-        function toggleResetMode() {
+                                                                                                                function toggleResetMode() {
             const authContainer = document.getElementById('modalAuthContainer');
-            const resetContainer = document.getElementById('modalResetContainer');
-            
-            if (resetContainer.classList.contains('hidden')) {
-                authContainer.classList.add('hidden');
-                resetContainer.classList.remove('hidden');
+                                                                                                                const resetContainer = document.getElementById('modalResetContainer');
+
+                                                                                                                if (resetContainer.classList.contains('hidden')) {
+                                                                                                                    authContainer.classList.add('hidden');
+                                                                                                                resetContainer.classList.remove('hidden');
             } else {
-                resetContainer.classList.add('hidden');
-                authContainer.classList.remove('hidden');
+                                                                                                                    resetContainer.classList.add('hidden');
+                                                                                                                authContainer.classList.remove('hidden');
             }
         }
 
-        function updateAuthUI() {
+                                                                                                                function updateAuthUI() {
             const title = document.getElementById('modalTitle');
-            const subtitle = document.getElementById('modalSubtitle');
-            const submitText = document.getElementById('modalSubmitText');
-            const toggleText = document.getElementById('modalToggleText');
-            const toggleLink = document.getElementById('modalToggleLink');
-            const errorDiv = document.getElementById('authError');
-            
-            errorDiv.classList.add('hidden');
+                                                                                                                const subtitle = document.getElementById('modalSubtitle');
+                                                                                                                const submitText = document.getElementById('modalSubmitText');
+                                                                                                                const toggleText = document.getElementById('modalToggleText');
+                                                                                                                const toggleLink = document.getElementById('modalToggleLink');
+                                                                                                                const errorDiv = document.getElementById('authError');
 
-            if (isLoginMode) {
-                title.textContent = 'Start Curating';
-                subtitle.textContent = '';
-                submitText.textContent = 'Sign In';
-                toggleText.textContent = "Don't have an account?";
-                toggleLink.textContent = 'Join kurate';
+                                                                                                                errorDiv.classList.add('hidden');
+
+                                                                                                                if (isLoginMode) {
+                                                                                                                    title.textContent = 'Start Curating';
+                                                                                                                subtitle.textContent = '';
+                                                                                                                submitText.textContent = 'Sign In';
+                                                                                                                toggleText.textContent = "Don't have an account?";
+                                                                                                                toggleLink.textContent = 'Join kurate';
             } else {
-                title.textContent = 'Join kurate';
-                subtitle.textContent = '';
-                submitText.textContent = 'Join kurate';
-                toggleText.textContent = 'Already have an account?';
-                toggleLink.textContent = 'Sign in';
+                                                                                                                    title.textContent = 'Join kurate';
+                                                                                                                subtitle.textContent = '';
+                                                                                                                submitText.textContent = 'Join kurate';
+                                                                                                                toggleText.textContent = 'Already have an account?';
+                                                                                                                toggleLink.textContent = 'Sign in';
             }
         }
 
-        async function handleAuthSubmit(e) {
-            e.preventDefault();
-            const username = document.getElementById('modalUsername').value;
-            const password = document.getElementById('modalPassword').value;
-            const errorDiv = document.getElementById('authError');
-            
-            errorDiv.classList.add('hidden');
-            
-            const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+                                                                                                                async function handleAuthSubmit(e) {
+                                                                                                                    e.preventDefault();
+                                                                                                                const username = document.getElementById('modalUsername').value;
+                                                                                                                const password = document.getElementById('modalPassword').value;
+                                                                                                                const errorDiv = document.getElementById('authError');
 
-            try {
+                                                                                                                errorDiv.classList.add('hidden');
+
+                                                                                                                const endpoint = isLoginMode ? '/api/auth/login' : '/api/auth/register';
+
+                                                                                                                try {
                 const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                                                                                                                    method: 'POST',
+                                                                                                                headers: {'Content-Type': 'application/json' },
+                                                                                                                body: JSON.stringify({username, password})
                 });
 
-                const data = await response.json();
+                                                                                                                const data = await response.json();
 
-                if (data.success) {
-                    localStorage.setItem('authToken', data.token);
-                    window.location.href = '/home';
+                                                                                                                if (data.success) {
+                                                                                                                    localStorage.setItem('authToken', data.token);
+                                                                                                                window.location.href = '/home';
                 } else {
-                    errorDiv.textContent = data.error || 'Authentication failed';
-                    errorDiv.classList.remove('hidden');
+                                                                                                                    errorDiv.textContent = data.error || 'Authentication failed';
+                                                                                                                errorDiv.classList.remove('hidden');
                 }
             } catch (error) {
-                errorDiv.textContent = 'An error occurred. Please try again.';
-                errorDiv.classList.remove('hidden');
+                                                                                                                    errorDiv.textContent = 'An error occurred. Please try again.';
+                                                                                                                errorDiv.classList.remove('hidden');
             }
         }
 
-        async function handleResetSubmit(e) {
-            e.preventDefault();
-            const username = document.getElementById('resetUsername').value;
-            const newPassword = document.getElementById('newPassword').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-            const errorDiv = document.getElementById('resetError');
-            const successDiv = document.getElementById('resetSuccess');
-            
-            errorDiv.classList.add('hidden');
-            successDiv.classList.add('hidden');
+                                                                                                                async function handleResetSubmit(e) {
+                                                                                                                    e.preventDefault();
+                                                                                                                const username = document.getElementById('resetUsername').value;
+                                                                                                                const newPassword = document.getElementById('newPassword').value;
+                                                                                                                const confirmPassword = document.getElementById('confirmPassword').value;
+                                                                                                                const errorDiv = document.getElementById('resetError');
+                                                                                                                const successDiv = document.getElementById('resetSuccess');
 
-            if (newPassword !== confirmPassword) {
-                errorDiv.textContent = "Passwords don't match";
-                errorDiv.classList.remove('hidden');
-                return;
+                                                                                                                errorDiv.classList.add('hidden');
+                                                                                                                successDiv.classList.add('hidden');
+
+                                                                                                                if (newPassword !== confirmPassword) {
+                                                                                                                    errorDiv.textContent = "Passwords don't match";
+                                                                                                                errorDiv.classList.remove('hidden');
+                                                                                                                return;
             }
 
-            try {
+                                                                                                                try {
                 const response = await fetch('/api/auth/reset-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, newPassword })
+                                                                                                                    method: 'POST',
+                                                                                                                headers: {'Content-Type': 'application/json' },
+                                                                                                                body: JSON.stringify({username, newPassword})
                 });
 
-                const data = await response.json();
+                                                                                                                const data = await response.json();
 
-                if (data.success) {
-                    successDiv.textContent = 'Password reset successfully. You can now sign in.';
-                    successDiv.classList.remove('hidden');
-                    document.getElementById('modalResetForm').reset();
+                                                                                                                if (data.success) {
+                                                                                                                    successDiv.textContent = 'Password reset successfully. You can now sign in.';
+                                                                                                                successDiv.classList.remove('hidden');
+                                                                                                                document.getElementById('modalResetForm').reset();
                     setTimeout(() => {
-                        toggleResetMode();
-                        isLoginMode = true; // Switch to login
-                        updateAuthUI();
+                                                                                                                    toggleResetMode();
+                                                                                                                isLoginMode = true; // Switch to login
+                                                                                                                updateAuthUI();
                     }, 2000);
                 } else {
-                    errorDiv.textContent = data.error || 'Reset failed';
-                    errorDiv.classList.remove('hidden');
+                                                                                                                    errorDiv.textContent = data.error || 'Reset failed';
+                                                                                                                errorDiv.classList.remove('hidden');
                 }
             } catch (error) {
-                errorDiv.textContent = 'An error occurred. Please try again.';
-                errorDiv.classList.remove('hidden');
+                                                                                                                    errorDiv.textContent = 'An error occurred. Please try again.';
+                                                                                                                errorDiv.classList.remove('hidden');
             }
         }
-        
+
         // Check for auto-signup action from extension (immediate execution)
         const checkAutoSignup = () => {
             const params = new URLSearchParams(window.location.search);
-            if (params.get('action') === 'signup') {
-                isLoginMode = false;
-                if (typeof updateAuthUI === 'function') updateAuthUI();
-                if (typeof openAuthModal === 'function') openAuthModal();
-                // Clean up URL
-                window.history.replaceState({}, document.title, window.location.pathname);
+                                                                                                                if (params.get('action') === 'signup') {
+                                                                                                                    isLoginMode = false;
+                                                                                                                if (typeof updateAuthUI === 'function') updateAuthUI();
+                                                                                                                if (typeof openAuthModal === 'function') openAuthModal();
+                                                                                                                // Clean up URL
+                                                                                                                window.history.replaceState({ }, document.title, window.location.pathname);
             }
-            
-            // Handle Privacy Policy direct link
-            if (params.get('p') === 'privacy') {
+
+                                                                                                                // Handle Privacy Policy direct link
+                                                                                                                if (params.get('p') === 'privacy') {
                 if (typeof openPrivacyModal === 'function') openPrivacyModal();
             }
         };
-        checkAutoSignup();
+                                                                                                                checkAutoSignup();
 
         // Close modal on escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                closeAuthModal();
-                closePrivacyModal();
-                closeContactModal();
+                                                                                                                    closeAuthModal();
+                                                                                                                closePrivacyModal();
+                                                                                                                closeContactModal();
             }
         });
-    </script>
-</body>
+                                                                                                            </script>
+                                                                                                        </body>
 
-</html>`;
+                                                                                                    </html>`;
 }
 
 
