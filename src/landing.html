@@ -14,7 +14,7 @@
         rel="stylesheet">
     <style>
         :root {
-            --orange: #EA580C;
+            --orange: #D2622A;
         }
 
         body {
@@ -37,13 +37,14 @@
     <nav class="w-full px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
         <a href="https://kurate.net" class="flex items-center gap-2 hover:opacity-80 transition-opacity"
             style="text-decoration: none; color: inherit;">
-            <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs">
-                ★
+            <div
+                class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-[14px] font-bold">
+                K
             </div>
-            <span class="font-bold text-2xl tracking-tight">kurate.</span>
+            <span class="font-bold text-[20px] tracking-tight">kurate</span>
         </a>
         <button onclick="openAuthModal()"
-            class="px-6 py-2.5 bg-[#1C1917] text-white rounded-full text-base font-medium hover:bg-[#D94E28] transition-colors">
+            class="px-6 py-2.5 bg-[#1C1917] text-white rounded-full text-base font-medium hover:bg-[#D2622A] transition-colors">
             Start Curating
         </button>
     </nav>
@@ -55,7 +56,7 @@
         <div class="lg:w-3/5 max-w-3xl">
             <h1 class="text-4xl lg:text-5xl leading-tight font-serif text-[#1C1917] mb-8 tracking-tight">
                 Your personal library of the best ideas you find online.<br>
-                <span class="text-[#D94E28]">You are the curator.</span>
+                <span class="text-[#D2622A]">You are the curator.</span>
             </h1>
 
             <p class="text-lg text-gray-600 leading-relaxed max-w-2xl mb-10">
@@ -67,7 +68,7 @@
             </p>
 
             <button onclick="openAuthModal()"
-                class="group bg-[#1C1917] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#D94E28] transition-all duration-300 flex items-center gap-2">
+                class="group bg-[#1C1917] text-white px-8 py-4 rounded-full text-base font-medium hover:bg-[#D2622A] transition-all duration-300 flex items-center gap-2">
                 Start Curating
                 <span class="group-hover:translate-x-1 transition-transform">→</span>
             </button>
@@ -140,13 +141,13 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
                                 <input type="text" id="modalUsername"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
                                     placeholder="Enter your username" required autocomplete="off">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Password</label>
                                 <input type="password" id="modalPassword"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
                                     placeholder="Enter your password" required>
                             </div>
                         </div>
@@ -154,7 +155,7 @@
                         <div id="authError" class="hidden mt-4 text-center text-red-500 text-sm"></div>
 
                         <button type="submit"
-                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D94E28] transition-all duration-300 shadow-lg shadow-orange-500/20">
+                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D2622A] transition-all duration-300 shadow-lg shadow-orange-500/20">
                             <span id="modalSubmitText">Sign In</span>
                         </button>
                     </form>
@@ -162,7 +163,7 @@
                     <div class="mt-8 text-center text-sm text-gray-500">
                         <span id="modalToggleText">Don't have an account?</span>
                         <button onclick="toggleAuthMode()"
-                            class="text-[#D94E28] font-bold hover:underline ml-1 decoration-2 underline-offset-2 transition-colors"
+                            class="text-[#D2622A] font-bold hover:underline ml-1 decoration-2 underline-offset-2 transition-colors"
                             id="modalToggleLink">Join Kurate</button>
                     </div>
 
@@ -185,20 +186,20 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Username</label>
                                 <input type="text" id="resetUsername"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
                                     placeholder="Enter your username" required>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">New Password</label>
                                 <input type="password" id="newPassword"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
                                     placeholder="Min 6 characters" required>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Confirm
                                     Password</label>
                                 <input type="password" id="confirmPassword"
-                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D94E28]/20 focus:border-[#D94E28] transition-all bg-gray-50 placeholder-gray-400"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
                                     placeholder="Confirm new password" required>
                             </div>
                         </div>
@@ -207,7 +208,7 @@
                         <div id="resetSuccess" class="hidden mt-4 text-center text-green-600 text-sm"></div>
 
                         <button type="submit"
-                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D94E28] transition-all duration-300 shadow-lg shadow-orange-500/20">
+                            class="w-full mt-8 bg-[#1C1917] text-white py-3.5 rounded-xl font-medium hover:bg-[#D2622A] transition-all duration-300 shadow-lg shadow-orange-500/20">
                             Reset Password
                         </button>
                     </form>

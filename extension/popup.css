@@ -20,20 +20,32 @@
     --radius-sm: 12px;
 }
 
-body {
-    width: 255px;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+html {
     background: #FDFAF8;
-    /* Match landing page background */
+    /* Match website color exactly */
+}
+
+body {
+    width: 260px;
+    /* Balanced width */
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: #FDFAF8;
     color: var(--text-main);
     -webkit-font-smoothing: antialiased;
-    border-radius: 0;
-    /* Sharp edges for the extension outline */
+    border-radius: 20px;
+    /* Stronger rounding */
+    overflow: hidden;
+    /* Prevent scrollbars */
+    margin: 0;
+    /* Removed border to blend better if transparency fails */
 }
 
 .view {
     display: block;
     background: #FDFAF8;
+    /* min-height removed to let content define height */
+    padding-bottom: 1px;
+    /* Prevent margin collapse */
 }
 
 .view.hidden {
@@ -44,7 +56,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 20px 12px;
+    padding: 12px 16px 8px;
+    /* Compact padding */
     background: #FDFAF8;
 }
 
@@ -61,60 +74,71 @@ body {
 }
 
 .logo-icon {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
     background: #000000;
-    /* Black solid circle as requested */
     color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
     line-height: 1;
 }
 
 .logo-text {
-    font-size: 15px;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 20px;
     font-weight: 700;
+    /* Bold as per image 2 */
     letter-spacing: -0.02em;
     color: var(--text-main);
+    font-style: normal;
+    /* No italic */
 }
 
 .content {
-    padding: 0 20px 20px;
+    padding: 0 16px 16px;
 }
 
 h2 {
-    font-size: 19px;
+    font-size: 16px;
     font-weight: 700;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     color: var(--text-main);
     letter-spacing: -0.02em;
 }
 
 .form-group {
-    margin-bottom: 14px;
+    margin-bottom: 10px;
 }
 
 label {
     display: block;
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 9px;
+    font-weight: 800;
+    /* Extra bold */
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-light);
-    margin-bottom: 8px;
+    color: #000000;
+    /* Pure Black */
+    margin-bottom: 4px;
+    opacity: 0.8;
 }
 
 input[type="text"],
 input[type="password"] {
     width: 100%;
-    padding: 11px 16px;
-    background: rgba(249, 248, 246, 0.7);
+    padding: 8px 12px;
+    background: #FFFFFF;
+    /* White background for better contrast */
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    font-size: 13px;
+    /* Darker border */
+    border-radius: 12px;
+    /* Consistent rounding */
+    font-size: 11px;
     color: var(--text-main);
     font-family: inherit;
     transition: all 0.2s ease;
@@ -124,10 +148,10 @@ input:focus {
     outline: none;
     border-color: var(--primary-orange);
     background: #fff;
-    box-shadow: 0 0 0 4px rgba(217, 78, 40, 0.06);
+    box-shadow: 0 0 0 2px rgba(217, 78, 40, 0.1);
 }
 
-/* Custom Dropdown Styling - Matching Image 2 in 1791 */
+/* Custom Dropdown Styling */
 .custom-dropdown {
     position: relative;
     user-select: none;
@@ -135,12 +159,15 @@ input:focus {
 
 .dropdown-trigger {
     width: 100%;
-    padding: 11px 16px;
-    background: rgba(249, 248, 246, 0.7);
+    padding: 9px 14px;
+    /* Reduced padding */
+    background: #FFFFFF;
+    /* White background */
     border: 1px solid var(--border-subtle);
+    /* Darker border */
     border-radius: var(--radius-sm);
-    font-size: 12px;
-    /* Slightly smaller to match options */
+    font-size: 11px;
+    /* Reduced from 12 */
     color: var(--text-muted);
     cursor: pointer;
     display: flex;
@@ -161,17 +188,16 @@ input:focus {
 
 .dropdown-options {
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 4px);
     left: 0;
     right: 0;
     background: #FFFFFF;
     border-radius: var(--radius-md);
-    /* Same very rounded as image 2 */
     box-shadow: var(--shadow-floating);
     border: 1px solid var(--border-subtle);
     z-index: 1000;
     display: none;
-    padding: 8px;
+    padding: 6px;
     animation: slideIn 0.2s ease-out;
 }
 
@@ -192,14 +218,13 @@ input:focus {
 }
 
 .dropdown-option {
-    padding: 6px 14px;
-    /* Reduced vertical padding for smaller height */
-    font-size: 11px;
-    /* Smaller font size */
+    padding: 5px 12px;
+    /* Reduced */
+    font-size: 10px;
+    /* Reduced */
     color: var(--text-main);
     cursor: pointer;
     border-radius: 8px;
-    /* Slightly smaller radius for smaller size */
     transition: all 0.15s ease;
     margin-bottom: 1px;
 }
@@ -210,7 +235,6 @@ input:focus {
 
 .dropdown-option:hover {
     background: var(--bg-warm);
-    /* Soft warm highlight like image 2 */
 }
 
 .dropdown-option.selected {
@@ -219,28 +243,31 @@ input:focus {
 }
 
 .url-preview {
-    margin-bottom: 16px;
-    padding: 12px;
+    margin-bottom: 14px;
+    padding: 10px;
     background: rgba(249, 248, 246, 0.9);
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-subtle);
 }
 
 .url-text {
-    font-size: 11px;
+    font-size: 10px;
+    /* Reduced */
     color: var(--text-light);
     word-break: break-all;
-    line-height: 1.5;
+    line-height: 1.4;
 }
 
 .btn-primary {
     width: 100%;
-    padding: 12px 16px;
+    padding: 10px 14px;
+    /* Reduced */
     background: var(--primary-orange);
     color: white;
     border: none;
     border-radius: var(--radius-sm);
-    font-size: 14px;
+    font-size: 13px;
+    /* Reduced */
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
@@ -256,42 +283,46 @@ input:focus {
     background: none;
     border: none;
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 11px;
+    /* Reduced */
     cursor: pointer;
-    padding: 6px 10px;
+    padding: 4px 8px;
 }
 
 .error {
     color: #DC2626;
-    font-size: 11px;
-    margin-top: 10px;
-    padding: 10px;
+    font-size: 10px;
+    margin-top: 8px;
+    padding: 8px;
     background: #FEF2F2;
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 /* Success View */
 .success-content {
     text-align: center;
-    padding: 40px 20px;
+    padding: 30px 16px;
+    /* Reduced */
 }
 
 .success-icon {
-    width: 54px;
-    height: 54px;
+    width: 48px;
+    /* Reduced */
+    height: 48px;
     background: var(--primary-orange);
     color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 26px;
-    margin: 0 auto 18px;
+    font-size: 22px;
+    /* Reduced */
+    margin: 0 auto 16px;
     box-shadow: 0 4px 16px rgba(217, 78, 40, 0.3);
 }
 
 .success-content p {
     color: var(--text-muted);
-    margin-bottom: 24px;
-    font-size: 13px;
+    margin-bottom: 20px;
+    font-size: 12px;
 }

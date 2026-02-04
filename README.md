@@ -29,11 +29,12 @@ A secure, full-stack link sharing application with user authentication, cloud sy
 npm install
 ```
 
-### 2. Run Development Server
+### 2. Deployment
+The application is designed to be deployed to Cloudflare Workers.
 ```bash
-npm run dev
+npm run deploy
 ```
-Visit `http://localhost:8787` to access the application.
+Visit `https://kurate.net` to access the application.
 
 ## 🧩 Browser Extensions
 

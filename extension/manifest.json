@@ -8,8 +8,7 @@
         "storage"
     ],
     "host_permissions": [
-        "https://kurate.net/*",
-        "http://localhost:8787/*"
+        "https://kurate.net/*"
     ],
     "action": {
         "default_popup": "popup.html",

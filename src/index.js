@@ -2630,14 +2630,14 @@ function getLandingHTML() {
                                                                                                 <body class="min-h-screen flex flex-col overflow-x-hidden">
 
                                                                                                     <!-- Navbar -->
-                                                                                                    <nav href="https://kurate.net" class="w-full px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
-                                                                                                        <a href="https://kurate.net" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                                                                                                            <!-- Black Circle with White K -->
-                                                                                                            <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                                                                                                K
-                                                                                                            </div>
-                                                                                                            <span class="font-bold text-2xl tracking-tight">kurate</span>
-                                                                                                        </a>
+                                                                                                     <nav class="w-full px-8 py-6 flex justify-between items-center max-w-7xl mx-auto">
+                                                                                                         <a href="https://kurate.net" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                                                                                                             <!-- Black Circle with White K -->
+                                                                                                             <div class="w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-[14px] font-bold">
+                                                                                                                 K
+                                                                                                             </div>
+                                                                                                             <span class="font-bold text-[20px] tracking-tight">kurate</span>
+                                                                                                         </a>
                                                                                                         <div class="flex items-center gap-4">
 
                                                                                                         </div>
@@ -2650,7 +2650,7 @@ function getLandingHTML() {
                                                                                                         <div class="lg:w-3/5 max-w-3xl">
                                                                                                             <h1 class="text-4xl lg:text-5xl leading-tight font-serif text-[#1C1917] mb-8 tracking-tight">
                                                                                                                 Your personal library of ideas from across the web.<br>
-                                                                                                                    <span class="text-[#D2622A]">You are curator.</span>
+                                                                                                                    <span class="text-[#D2622A]">You are the curator.</span>
                                                                                                             </h1>
 
                                                                                                             <p class="text-lg text-gray-600 leading-relaxed max-w-2xl mb-10">
