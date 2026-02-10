@@ -4293,7 +4293,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 20px 8px;
+    padding: 4px 20px 8px;
     background: var(--bg);
     position: sticky;
     top: 0;
@@ -4356,7 +4356,7 @@ body {
 .m-search-icon { flex-shrink: 0; margin-right: 8px; }
 .m-search-input {
     flex: 1;
-    height: 40px;
+    height: 34px;
     border: none;
     background: transparent;
     font-size: 13px;
@@ -4388,7 +4388,7 @@ body {
     align-items: center;
     justify-content: center;
     gap: 4px;
-    padding: 6px 0;
+    padding: 5px 0;
     border: none;
     background: transparent;
     border-radius: 8px;
@@ -4404,7 +4404,7 @@ body {
     color: var(--primary);
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
-.m-tab svg { width: 14px; height: 14px; }
+.m-tab svg { width: 16px; height: 16px; }
 
 /* Category Pills */
 .m-categories-scroll {
@@ -4448,7 +4448,7 @@ body {
 .m-card-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 16px;
     padding: 0 8px;
 }
 
@@ -4460,9 +4460,7 @@ body {
     border: 1px solid #ECECEC;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    min-height: 150px;
 }
 .card-top {
     display: flex;
@@ -4495,7 +4493,7 @@ body {
 }
 .star-btn:hover, .star-btn.active { color: #FBBF24; }
 
-.card-main { margin-bottom: 8px; flex: 1; }
+.card-main { margin-bottom: 0; }
 .card-title {
     font-size: 14px;
     font-weight: 600;
@@ -4507,7 +4505,7 @@ body {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     margin-bottom: 4px;
-    max-height: 36px;
+    height: 36px;
 }
 .card-title a { text-decoration: none; color: inherit; }
 .card-domain {
@@ -4516,6 +4514,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin-bottom: 12px;
 }
 
 .card-footer {
@@ -4588,7 +4587,8 @@ body {
 .m-fullview {
     position: fixed;
     top: 0; left: 0;
-    width: 100%; height: 100%;
+    width: 100%; height: 100vh;
+    height: 100dvh;
     background: var(--bg);
     z-index: 500;
     display: none;
@@ -4763,11 +4763,12 @@ body {
     border-radius: 16px;
     padding: 16px;
     border: 1px solid var(--border);
-    min-height: 200px;
+    height: 220px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    cursor: pointer;
 }
 .rec-card-header {
     display: flex;
@@ -5042,37 +5043,92 @@ class LinksApp {
         modal.classList.remove('active');
     }
 
+    stripHtml(html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
+    }
+
     async loadRecommendedArticles() {
-        const container = document.getElementById('recommendedArticles');
+        var self = this;
+        var container = document.getElementById('recommendedArticles');
         container.innerHTML = '<div class="m-loading"><div class="m-spinner"></div><p>Fetching trending articles...</p></div>';
         try {
-            const sources = {
-                sports: 'https://newsdata.io/api/1/latest?apikey=pub_6441534ee5919d07ef42d9dbb24ba7f66fd36&category=sports&language=en&size=10',
-                entertainment: 'https://newsdata.io/api/1/latest?apikey=pub_6441534ee5919d07ef42d9dbb24ba7f66fd36&category=entertainment&language=en&size=10',
-                business: 'https://newsdata.io/api/1/latest?apikey=pub_6441534ee5919d07ef42d9dbb24ba7f66fd36&category=business&language=en&size=10',
-                technology: 'https://newsdata.io/api/1/latest?apikey=pub_6441534ee5919d07ef42d9dbb24ba7f66fd36&category=technology&language=en&size=10',
-                education: 'https://newsdata.io/api/1/latest?apikey=pub_6441534ee5919d07ef42d9dbb24ba7f66fd36&category=education&language=en&size=10',
-                other: 'https://newsdata.io/api/1/latest?apikey=pub_6441534ee5919d07ef42d9dbb24ba7f66fd36&category=top&language=en&size=10'
-            };
-            const allArticles = [];
-            const entries = Object.entries(sources);
-            const results = await Promise.allSettled(entries.map(([cat, url]) =>
-                fetch(url).then(r => r.json()).then(data => ({ cat, results: data.results || [] }))
-            ));
-            results.forEach(r => {
-                if (r.status === 'fulfilled' && r.value.results) {
-                    r.value.results.forEach(article => {
-                        allArticles.push({
-                            title: article.title || 'Untitled',
-                            description: article.description || '',
-                            url: article.link || '#',
-                            source: r.value.cat,
-                            domain: article.source_id || '',
-                            date: article.pubDate || ''
-                        });
+            var feeds = [
+                { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
+                { name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'sports' },
+                { name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', category: 'sports' },
+                { name: 'Variety', url: 'https://variety.com/feed/', category: 'entertainment' },
+                { name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', category: 'entertainment' },
+                { name: 'Deadline', url: 'https://deadline.com/feed/', category: 'entertainment' },
+                { name: 'Harvard Business Review', url: 'https://hbr.org/feed', category: 'business' },
+                { name: 'Entrepreneur', url: 'https://www.entrepreneur.com/latest.rss', category: 'business' },
+                { name: 'Fortune', url: 'https://fortune.com/feed/', category: 'business' },
+                { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'technology' },
+                { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'technology' },
+                { name: 'Hacker News', url: 'https://hnrss.org/frontpage', category: 'technology' },
+                { name: 'Engadget', url: 'https://www.engadget.com/rss.xml', category: 'technology' },
+                { name: 'EdSurge', url: 'https://www.edsurge.com/articles_rss', category: 'education' },
+                { name: 'Open Culture', url: 'https://www.openculture.com/feed', category: 'education' },
+                { name: 'Lifehacker', url: 'https://lifehacker.com/rss', category: 'other' },
+                { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', category: 'other' }
+            ];
+
+            var allArticles = [];
+            var sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 14);
+
+            var fetchPromises = feeds.map(function(feed) {
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 8000);
+                return fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(feed.url) + '&count=10', { signal: controller.signal })
+                    .then(function(response) {
+                        clearTimeout(timeoutId);
+                        if (!response.ok) return [];
+                        return response.json();
+                    })
+                    .then(function(data) {
+                        if (data.status === 'ok' && data.items) {
+                            return data.items.map(function(item) {
+                                var pubDate = new Date(item.pubDate || item.pub_date || item.created);
+                                if (pubDate >= sevenDaysAgo) {
+                                    return {
+                                        title: item.title || 'Untitled',
+                                        description: self.stripHtml(item.description || item.content || '').substring(0, 160),
+                                        url: item.link || '#',
+                                        source: feed.name,
+                                        category: feed.category,
+                                        domain: self.extractDomain(item.link || ''),
+                                        date: item.pubDate || ''
+                                    };
+                                }
+                                return null;
+                            }).filter(Boolean);
+                        }
+                        return [];
+                    })
+                    .catch(function() {
+                        clearTimeout(timeoutId);
+                        return [];
                     });
+            });
+
+            var results = await Promise.all(fetchPromises);
+            results.forEach(function(articles) {
+                if (articles && Array.isArray(articles)) {
+                    allArticles.push.apply(allArticles, articles);
                 }
             });
+
+            allArticles.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+            var seen = {};
+            allArticles = allArticles.filter(function(a) {
+                if (!a.url || seen[a.url]) return false;
+                seen[a.url] = true;
+                return true;
+            });
+
             this.allRecommendedArticles = allArticles;
             this.recommendedArticles = allArticles;
             this.renderRecommendedArticles();
@@ -5097,8 +5153,9 @@ class LinksApp {
             return;
         }
         container.innerHTML = this.recommendedArticles.map(function(article, i) {
-            const dateStr = article.date ? new Date(article.date).toLocaleDateString() : '';
-            return '<div class="recommended-article-card">' +
+            var dateStr = article.date ? new Date(article.date).toLocaleDateString() : '';
+            var safeUrl = (article.url || '#').replace(/'/g, '&#39;');
+            return '<div class="recommended-article-card" onclick="window.open(&#39;' + safeUrl + '&#39;, &#39;_blank&#39;)">' +
                 '<div>' +
                     '<div class="rec-card-header">' +
                         '<span class="rec-source-badge">' + article.source + '</span>' +
@@ -5109,7 +5166,7 @@ class LinksApp {
                 '</div>' +
                 '<div class="rec-card-footer">' +
                     '<span class="rec-domain">' + article.domain + '</span>' +
-                    '<button class="rec-curate-btn" id="recBtn' + i + '" onclick="window.app.curateArticle(' + i + ')">Curate</button>' +
+                    '<button class="rec-curate-btn" id="recBtn' + i + '" onclick="event.stopPropagation(); window.app.curateArticle(' + i + ')">Curate</button>' +
                 '</div>' +
             '</div>';
         }).join('');
