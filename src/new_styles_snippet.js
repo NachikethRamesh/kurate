@@ -18,8 +18,8 @@ function getStylesCSS() {
     --radius-md: 12px;
     --radius-sm: 8px;
     
-    --sidebar-width-left: 240px;
-    --sidebar-width-right: 320px;
+    --sidebar-width-left: clamp(180px, 14vw, 240px);
+    --sidebar-width-right: clamp(240px, 18vw, 320px);
 }
 
 * {
@@ -46,13 +46,13 @@ body {
 .container {
     max-width: 1440px;
     margin: 0 auto;
-    padding: 0 40px;
+    padding: 0 clamp(16px, 3vw, 40px);
     width: 100%;
     flex: 1;
 }
 
 .app-header {
-    padding: 24px 40px;
+    padding: 24px clamp(16px, 3vw, 40px);
     max-width: 1440px;
     margin: 0 auto;
     width: 100%;
@@ -119,7 +119,7 @@ body {
 .main-content {
     display: grid;
     grid-template-columns: var(--sidebar-width-left) 1fr var(--sidebar-width-right);
-    gap: 64px;
+    gap: clamp(24px, 3vw, 64px);
     padding-top: 24px;
     padding-bottom: 64px;
 }
@@ -516,32 +516,118 @@ body {
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* Media Queries */
+/* ===== Mobile Navigation Components (hidden on desktop) ===== */
+
+.hamburger-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    cursor: pointer;
+    padding: 0;
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+
+.hamburger-btn:hover { background: #F3F4F6; }
+.hamburger-btn svg { width: 20px; height: 20px; }
+
+.drawer-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 900;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.drawer-backdrop.active { display: block; opacity: 1; }
+
+.sidebar-left.drawer-open {
+    display: flex !important;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0;
+    width: 280px;
+    max-width: 80vw;
+    height: 100%;
+    background: var(--bg-page);
+    z-index: 950;
+    padding: 24px;
+    overflow-y: auto;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
+    animation: slideInLeft 0.3s ease;
+}
+
+@keyframes slideInLeft {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+.mobile-fab {
+    display: none;
+    position: fixed;
+    bottom: 24px; right: 24px;
+    width: 56px; height: 56px;
+    background: var(--accent-orange);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 800;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
+    transition: all 0.2s;
+}
+
+.mobile-fab:hover {
+    background: var(--accent-orange-hover);
+    transform: translateY(-2px);
+}
+
+/* ===== Media Queries ===== */
+
 @media (max-width: 1200px) {
     .main-content {
-        grid-template-columns: 200px 1fr 280px;
-        gap: 32px;
+        grid-template-columns: 200px 1fr 260px;
+        gap: 24px;
     }
 }
 
 @media (max-width: 1024px) {
-    .main-content {
-        grid-template-columns: 1fr;
-        gap: 40px;
-    }
-    
-    .sidebar-left, .sidebar-right {
-        display: none; /* For simplicity in this responsive pass, or hide non-critical sidebars */
-        /* Ideally convert to hamburger menu or verify requirments. User asked for desktop redesign. */
-        /* Let's stack them for safety */
-    }
-    
-    .sidebar-left { display: block; order: 1; }
-    .content-mid { order: 2; }
-    .sidebar-right { order: 3; }
-    
-    .nav-list { flex-direction: row; overflow-x: auto; padding-bottom: 8px; }
-    .nav-item { white-space: nowrap; }
+    .hamburger-btn { display: flex; }
+    .mobile-fab { display: flex; }
+    .main-content { grid-template-columns: 1fr; gap: 24px; }
+    .sidebar-left { display: none; }
+    .sidebar-right { display: none; }
+    .content-mid { order: 1; }
+}
+
+@media (max-width: 768px) {
+    .content-title { font-size: 20px; }
+    .search-input { font-size: 14px; padding: 10px 14px 10px 40px; }
+    .links-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+    .link-card { padding: 16px; min-height: 140px; }
+    .status-message { left: 16px; right: 16px; bottom: 16px; text-align: center; }
+}
+
+@media (max-width: 480px) {
+    .links-grid { grid-template-columns: 1fr; }
+    .card-title { font-size: 14px; }
+    .card-domain { font-size: 12px; }
+    .card-badge { font-size: 9px; }
+    .content-header { margin-bottom: 16px; }
+    .search-container { margin-bottom: 20px; }
+    .mobile-fab { bottom: 16px; right: 16px; }
 }
 `;
 }
