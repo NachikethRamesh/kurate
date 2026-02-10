@@ -2070,6 +2070,14 @@ class LinksApp {
     }
 
     async preloadRecommendedArticles() {
+        // Check localStorage cache first (15 min TTL)
+        try {
+            const cached = JSON.parse(localStorage.getItem('recArticlesCache'));
+            if (cached && cached.ts && (Date.now() - cached.ts < 15 * 60 * 1000) && cached.articles && cached.articles.length > 0) {
+                this.recommendedArticles = cached.articles;
+                return;
+            }
+        } catch (e) {}
         // Don't block - just preload in background
         try {
             await this.loadRecommendedArticles(true);
@@ -2959,6 +2967,11 @@ async loadRecommendedArticles(silent = false) {
             seen.add(key);
             return true;
         });
+
+        // Cache to localStorage
+        try {
+            localStorage.setItem('recArticlesCache', JSON.stringify({ ts: Date.now(), articles: this.recommendedArticles }));
+        } catch (e) {}
 
         if (container) {
             this.renderRecommendedArticles();
@@ -4271,12 +4284,16 @@ function getMobileStylesCSS() {
     --font-sans: "Inter", system-ui, -apple-system, sans-serif;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+}
 body {
     font-family: var(--font-sans);
     background: var(--bg);
     color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -4924,10 +4941,24 @@ class LinksApp {
         this.setupEventListeners();
         this.showMainApp();
         this.loadLinks();
+        this.preloadRecommendedArticles();
+    }
+
+    preloadRecommendedArticles() {
+        var cached = null;
+        try {
+            cached = JSON.parse(localStorage.getItem('recArticlesCache'));
+        } catch (e) {}
+        if (cached && cached.ts && (Date.now() - cached.ts < 15 * 60 * 1000)) {
+            this.allRecommendedArticles = cached.articles;
+            this.recommendedArticles = cached.articles;
+            return;
+        }
+        this.loadRecommendedArticles(true);
     }
 
     showMainApp() {
-        const greeting = document.getElementById('userGreeting');
+        var greeting = document.getElementById('userGreeting');
         if (greeting && this.currentUser) {
             greeting.textContent = this.currentUser.username + "'s curated list";
         }
@@ -4998,21 +5029,35 @@ class LinksApp {
             });
         });
 
+        // Reference for non-arrow callbacks
+        var self = this;
+
         // Auto-fetch title on URL paste
-        const linkUrlInput = document.getElementById('linkUrl');
+        var linkUrlInput = document.getElementById('linkUrl');
         if (linkUrlInput) {
-            linkUrlInput.addEventListener('paste', () => {
-                setTimeout(() => {
-                    const url = linkUrlInput.value;
-                    if (url) this.fetchUrlTitle(url);
+            linkUrlInput.addEventListener('paste', function() {
+                setTimeout(function() {
+                    var url = linkUrlInput.value;
+                    if (url) self.fetchUrlTitle(url);
                 }, 10);
             });
         }
+
+        // Browser back button support for fullscreen views
+        window.addEventListener('popstate', function(e) {
+            var addView = document.getElementById('mobileAddView');
+            var recModal = document.getElementById('recommendedModal');
+            if (addView && addView.classList.contains('active')) {
+                self.hideMobileAddView(true);
+            } else if (recModal && recModal.classList.contains('active')) {
+                self.closeRecommendedPortal(true);
+            }
+        });
     }
 
     switchTab(tab) {
         this.currentTab = tab;
-        window.location.hash = tab === 'all' ? '' : tab;
+        history.replaceState(null, '', tab === 'all' ? location.pathname : '#' + tab);
         document.getElementById('allTab').classList.toggle('active', tab === 'all');
         document.getElementById('unreadTab').classList.toggle('active', tab === 'unread');
         document.getElementById('readTab').classList.toggle('active', tab === 'read');
@@ -5023,24 +5068,30 @@ class LinksApp {
     // Mobile Add View
     showMobileAddView() {
         document.getElementById('mobileAddView').classList.add('active');
+        history.pushState({ view: 'addLink' }, '');
     }
-    hideMobileAddView() {
+    hideMobileAddView(skipHistory) {
         document.getElementById('mobileAddView').classList.remove('active');
+        if (!skipHistory) { try { history.back(); } catch(e) {} }
     }
 
     // Recommended Reading
     openRecommendedPortal() {
-        const modal = document.getElementById('recommendedModal');
+        var modal = document.getElementById('recommendedModal');
         modal.classList.remove('hidden');
         modal.classList.add('active');
-        if (this.allRecommendedArticles.length === 0) {
+        history.pushState({ view: 'recommended' }, '');
+        if (this.allRecommendedArticles.length > 0) {
+            this.renderRecommendedArticles();
+        } else {
             this.loadRecommendedArticles();
         }
     }
-    closeRecommendedPortal() {
-        const modal = document.getElementById('recommendedModal');
+    closeRecommendedPortal(skipHistory) {
+        var modal = document.getElementById('recommendedModal');
         modal.classList.add('hidden');
         modal.classList.remove('active');
+        if (!skipHistory) { try { history.back(); } catch(e) {} }
     }
 
     stripHtml(html) {
@@ -5049,10 +5100,12 @@ class LinksApp {
         return tmp.textContent || tmp.innerText || '';
     }
 
-    async loadRecommendedArticles() {
+    async loadRecommendedArticles(silent) {
         var self = this;
         var container = document.getElementById('recommendedArticles');
-        container.innerHTML = '<div class="m-loading"><div class="m-spinner"></div><p>Fetching trending articles...</p></div>';
+        if (!silent && container) {
+            container.innerHTML = '<div class="m-loading"><div class="m-spinner"></div><p>Fetching trending articles...</p></div>';
+        }
         try {
             var feeds = [
                 { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
@@ -5131,9 +5184,16 @@ class LinksApp {
 
             this.allRecommendedArticles = allArticles;
             this.recommendedArticles = allArticles;
-            this.renderRecommendedArticles();
+            try {
+                localStorage.setItem('recArticlesCache', JSON.stringify({ ts: Date.now(), articles: allArticles }));
+            } catch (e) {}
+            if (container && !silent) {
+                this.renderRecommendedArticles();
+            }
         } catch (err) {
-            container.innerHTML = '<div class="m-loading"><p>Failed to load articles.</p></div>';
+            if (container && !silent) {
+                container.innerHTML = '<div class="m-loading"><p>Failed to load articles.</p></div>';
+            }
         }
     }
 
@@ -5141,7 +5201,7 @@ class LinksApp {
         if (source === 'all') {
             this.recommendedArticles = this.allRecommendedArticles;
         } else {
-            this.recommendedArticles = this.allRecommendedArticles.filter(a => a.source === source);
+            this.recommendedArticles = this.allRecommendedArticles.filter(function(a) { return a.category === source; });
         }
         this.renderRecommendedArticles();
     }
@@ -5226,7 +5286,8 @@ class LinksApp {
 
         const filtered = linksToFilter.filter(link => {
             let tabMatch = false;
-            if (this.currentTab === 'read') tabMatch = link.isRead === 1;
+            if (this.currentTab === 'all') tabMatch = true;
+            else if (this.currentTab === 'read') tabMatch = link.isRead === 1;
             else if (this.currentTab === 'favorites') tabMatch = link.isFavorite === 1;
             else tabMatch = !link.isRead || link.isRead === 0;
             if (!tabMatch) return false;
