@@ -4464,7 +4464,7 @@ body {
 }
 .m-card-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 16px;
     padding: 0 8px;
 }
@@ -4478,6 +4478,8 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    min-width: 0;
+    overflow: hidden;
 }
 .card-top {
     display: flex;
@@ -4510,7 +4512,7 @@ body {
 }
 .star-btn:hover, .star-btn.active { color: #FBBF24; }
 
-.card-main { margin-bottom: 0; }
+.card-main { margin-bottom: 0; min-width: 0; overflow: hidden; }
 .card-title {
     font-size: 14px;
     font-weight: 600;
@@ -4523,8 +4525,9 @@ body {
     -webkit-box-orient: vertical;
     margin-bottom: 4px;
     height: 36px;
+    word-break: break-word;
 }
-.card-title a { text-decoration: none; color: inherit; }
+.card-title a { text-decoration: none; color: inherit; display: block; overflow: hidden; text-overflow: ellipsis; }
 .card-domain {
     font-size: 11px;
     color: var(--text-tertiary);
