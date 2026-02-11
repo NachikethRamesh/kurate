@@ -7,7 +7,6 @@ directory = "./public"
 binding = "ASSETS"
 
 # No build command needed for Cloudflare Worker
-NODE_ENV: "production"
 
 # Cloudflare D1 Database Configuration
 # The database_id is a non-secret identifier — requires Cloudflare API credentials to access
@@ -25,4 +24,5 @@ NODE_ENV = "production"
 [observability.logs]
 enabled = false
 invocation_logs = true
+
 
