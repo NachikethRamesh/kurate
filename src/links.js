@@ -8,6 +8,13 @@ import {
 import { validateToken } from './auth.js';
 import { CORS_HEADERS, createResponse, createErrorResponse } from './constants.js';
 
+/**
+ * Handles GET/POST/DELETE on /api/links — fetches, creates, or deletes user links.
+ * Requires Bearer token authorization.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
 export async function handleLinks(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: CORS_HEADERS });
@@ -115,6 +122,12 @@ export async function handleLinks(request, env) {
   return createErrorResponse('Method not allowed', 405);
 }
 
+/**
+ * Handles POST /api/links/mark-read — toggles a link's read/unread status.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
 export async function handleMarkRead(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: CORS_HEADERS });
@@ -159,6 +172,12 @@ export async function handleMarkRead(request, env) {
   return createErrorResponse('Method not allowed', 405);
 }
 
+/**
+ * Handles POST /api/links/toggle-favorite — toggles a link's favorite status.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
 export async function handleToggleFavorite(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: CORS_HEADERS });

@@ -1,11 +1,16 @@
-import {
-  createUser,
-  getUserByUsername,
-  verifyUserPassword,
-  updateUserPassword
+import { 
+  createUser, 
+  getUserByUsername, 
+  verifyUserPassword, 
+  updateUserPassword 
 } from './database.js';
 import { CORS_HEADERS, createResponse, createErrorResponse } from './constants.js';
 
+/**
+ * Generates a base64-encoded auth token from user data.
+ * @param {Object} userData - Must contain username, id, and userHash
+ * @returns {string} Base64-encoded token string
+ */
 function generateToken(userData) {
   const tokenPayload = {
     username: userData.username,
@@ -16,6 +21,11 @@ function generateToken(userData) {
   return btoa(JSON.stringify(tokenPayload));
 }
 
+/**
+ * Validates a Bearer token from the Authorization header.
+ * @param {string|null} authHeader - Authorization header value (e.g. "Bearer <token>")
+ * @returns {Object|null} Decoded token data with username/userId, or null if invalid
+ */
 export function validateToken(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
@@ -33,7 +43,12 @@ export function validateToken(authHeader) {
   }
 }
 
-// Authentication Handlers
+/**
+ * Handles POST /api/auth/login — verifies credentials and returns a token.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
 export async function handleAuthLogin(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: CORS_HEADERS });
@@ -49,8 +64,8 @@ export async function handleAuthLogin(request, env) {
       }
 
       // Verify user credentials
-      const authResult = await verifyUserPassword(env.DB, username, password);
-
+      const authResult = await verifyUserPassword(env.DB, username, password, env.PASSWORD_SALT);
+      
       if (!authResult.success) {
         return createErrorResponse(authResult.error, authResult.error === 'User not found' ? 404 : 401);
       }
@@ -73,6 +88,12 @@ export async function handleAuthLogin(request, env) {
   return createErrorResponse('Method not allowed', 405);
 }
 
+/**
+ * Handles POST /api/auth/register — creates a new user and returns a token.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
 export async function handleAuthRegister(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: CORS_HEADERS });
@@ -81,7 +102,7 @@ export async function handleAuthRegister(request, env) {
   if (request.method === 'POST') {
     try {
       const requestData = await request.json();
-      const { username, password, email } = requestData;
+      const { username, password } = requestData;
 
       if (!username || !password) {
         return createErrorResponse('Username and password required', 400);
@@ -97,7 +118,7 @@ export async function handleAuthRegister(request, env) {
       }
 
       // Create user in D1 database
-      const result = await createUser(env.DB, username, password, email);
+      const result = await createUser(env.DB, username, password, env.PASSWORD_SALT);
 
       if (!result.success) {
         return createErrorResponse(result.error, result.error === 'Username already exists' ? 409 : 500);
@@ -126,6 +147,12 @@ export async function handleAuthRegister(request, env) {
   return createErrorResponse('Method not allowed', 405);
 }
 
+/**
+ * Handles POST /api/auth/reset-password — verifies current password and updates to new one.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
 export async function handlePasswordReset(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: CORS_HEADERS });
@@ -134,24 +161,26 @@ export async function handlePasswordReset(request, env) {
   if (request.method === 'POST') {
     try {
       const requestData = await request.json();
-      const { username, newPassword } = requestData;
+      const { username, currentPassword, newPassword } = requestData;
 
-      if (!username || !newPassword) {
-        return createErrorResponse('Username and new password required', 400);
+      if (!username || !currentPassword || !newPassword) {
+        return createErrorResponse('Username, current password, and new password are required', 400);
       }
 
       if (newPassword.length < 6) {
         return createErrorResponse('Password must be at least 6 characters long', 400);
       }
 
-      // Check if user exists
-      const user = await getUserByUsername(env.DB, username);
-      if (!user) {
-        return createErrorResponse('User not found', 404);
+      // Verify current password first
+      const authResult = await verifyUserPassword(env.DB, username, currentPassword, env.PASSWORD_SALT);
+      if (!authResult.success) {
+        return createErrorResponse(authResult.error === 'User not found' ? 'User not found' : 'Current password is incorrect', authResult.error === 'User not found' ? 404 : 401);
       }
 
+      const user = authResult.user;
+
       // Update password
-      const result = await updateUserPassword(env.DB, username, newPassword);
+      const result = await updateUserPassword(env.DB, username, newPassword, env.PASSWORD_SALT);
 
       if (!result.success) {
         return createErrorResponse('Failed to reset password', 500);
@@ -180,6 +209,12 @@ export async function handlePasswordReset(request, env) {
   return createErrorResponse('Method not allowed', 405);
 }
 
+/**
+ * Handles POST /api/auth/logout — currently client-side only (token removal).
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
 export async function handleAuthLogout(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: CORS_HEADERS });

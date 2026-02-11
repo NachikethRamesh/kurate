@@ -1,8 +1,13 @@
-const SALT = 'salt_kurate_2025';
 const encoder = new TextEncoder();
 
-async function generatePasswordHash(password) {
-  const data = encoder.encode(password + SALT);
+/**
+ * Generates a SHA-256 hash of the password with the provided salt.
+ * @param {string} password - Plain text password
+ * @param {string} salt - Salt from environment variable (PASSWORD_SALT)
+ * @returns {Promise<string>} Hex-encoded hash
+ */
+async function generatePasswordHash(password, salt) {
+  const data = encoder.encode(password + salt);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = new Uint8Array(hashBuffer);
 
@@ -13,6 +18,11 @@ async function generatePasswordHash(password) {
   return result;
 }
 
+/**
+ * Generates a unique user hash from username + current timestamp.
+ * @param {string} username
+ * @returns {Promise<string>} Hex-encoded hash
+ */
 async function generateUserHash(username) {
   const data = encoder.encode(username + Date.now().toString());
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -25,6 +35,11 @@ async function generateUserHash(username) {
   return result;
 }
 
+/**
+ * Extracts the domain (without www.) from a URL string.
+ * @param {string} url
+ * @returns {string} Domain name, or 'unknown' if URL is invalid
+ */
 function getDomainFromUrl(url) {
   try {
     const urlObj = new URL(url);
@@ -34,12 +49,18 @@ function getDomainFromUrl(url) {
   }
 }
 
+/**
+ * Fetches a URL and extracts the <title> tag content.
+ * Uses a 5-second timeout to avoid blocking link creation when target sites are slow or unresponsive.
+ * @param {string} url - URL to fetch the title from
+ * @returns {Promise<string|null>} Extracted title (max 200 chars), or null on failure
+ */
 async function extractTitleFromUrl(url) {
   try {
     const response = await fetch(url, {
       method: 'GET',
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; KurateBot/1.0)' },
-      signal: AbortSignal.timeout(5000) // 5 second timeout
+      signal: AbortSignal.timeout(5000) // 5s — keeps link creation fast even if target site is slow
     });
 
     if (!response.ok) return null;
@@ -52,15 +73,23 @@ async function extractTitleFromUrl(url) {
   }
 }
 
-export async function createUser(db, username, password, email = null) {
+/**
+ * Creates a new user in the database with hashed password and unique user hash.
+ * @param {D1Database} db
+ * @param {string} username
+ * @param {string} password - Plain text, will be hashed before storage
+ * @param {string} salt - Password salt from environment
+ * @returns {Promise<{success: boolean, userId?: number, userHash?: string, error?: string}>}
+ */
+export async function createUser(db, username, password, salt) {
   try {
-    const passwordHash = await generatePasswordHash(password);
+    const passwordHash = await generatePasswordHash(password, salt);
     const userHash = await generateUserHash(username);
 
     const result = await db.prepare(`
-      INSERT INTO users (username, password_hash, user_hash, email)
-      VALUES (?, ?, ?, ?)
-    `).bind(username, passwordHash, userHash, email).run();
+      INSERT INTO users (username, password_hash, user_hash)
+      VALUES (?, ?, ?)
+    `).bind(username, passwordHash, userHash).run();
 
     return {
       success: true,
@@ -78,6 +107,12 @@ export async function createUser(db, username, password, email = null) {
   }
 }
 
+/**
+ * Looks up a user by username.
+ * @param {D1Database} db
+ * @param {string} username
+ * @returns {Promise<Object|null>} User row or null if not found
+ */
 export async function getUserByUsername(db, username) {
   try {
     const user = await db.prepare(`
@@ -92,14 +127,22 @@ export async function getUserByUsername(db, username) {
   }
 }
 
-export async function verifyUserPassword(db, username, password) {
+/**
+ * Verifies a user's password against the stored hash.
+ * @param {D1Database} db
+ * @param {string} username
+ * @param {string} password - Plain text password to verify
+ * @param {string} salt - Password salt from environment
+ * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
+ */
+export async function verifyUserPassword(db, username, password, salt) {
   try {
     const user = await getUserByUsername(db, username);
     if (!user) {
       return { success: false, error: 'User not found' };
     }
 
-    const passwordHash = await generatePasswordHash(password);
+    const passwordHash = await generatePasswordHash(password, salt);
     if (user.password_hash !== passwordHash) {
       return { success: false, error: 'Invalid credentials' };
     }
@@ -117,9 +160,17 @@ export async function verifyUserPassword(db, username, password) {
   }
 }
 
-export async function updateUserPassword(db, username, newPassword) {
+/**
+ * Updates a user's password hash.
+ * @param {D1Database} db
+ * @param {string} username
+ * @param {string} newPassword - New plain text password to hash and store
+ * @param {string} salt - Password salt from environment
+ * @returns {Promise<{success: boolean, changes?: number, error?: string}>}
+ */
+export async function updateUserPassword(db, username, newPassword, salt) {
   try {
-    const newPasswordHash = await generatePasswordHash(newPassword);
+    const newPasswordHash = await generatePasswordHash(newPassword, salt);
     const result = await db.prepare(`
       UPDATE users 
       SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
@@ -135,6 +186,12 @@ export async function updateUserPassword(db, username, newPassword) {
   }
 }
 
+/**
+ * Retrieves all links for a user, ordered by most recent first.
+ * @param {D1Database} db
+ * @param {number} userId
+ * @returns {Promise<{success: boolean, links: Array}>}
+ */
 export async function getUserLinks(db, userId) {
   try {
     const links = await db.prepare(`
@@ -175,6 +232,13 @@ export async function getUserLinks(db, userId) {
   }
 }
 
+/**
+ * Creates a new link entry. Auto-extracts title from URL if not provided.
+ * @param {D1Database} db
+ * @param {number} userId
+ * @param {Object} linkData - { url, title?, category? }
+ * @returns {Promise<{success: boolean, link?: Object, error?: string}>}
+ */
 export async function createLink(db, userId, linkData) {
   try {
     const { url, title, category = 'general' } = linkData;
@@ -215,6 +279,13 @@ export async function createLink(db, userId, linkData) {
   }
 }
 
+/**
+ * Deletes a link owned by the given user.
+ * @param {D1Database} db
+ * @param {number} userId
+ * @param {string|number} linkId
+ * @returns {Promise<{success: boolean, changes?: number, error?: string}>}
+ */
 export async function deleteLink(db, userId, linkId) {
   try {
     const result = await db.prepare(`
@@ -234,6 +305,14 @@ export async function deleteLink(db, userId, linkId) {
   }
 }
 
+/**
+ * Marks a link as read or unread.
+ * @param {D1Database} db
+ * @param {number} userId
+ * @param {string|number} linkId
+ * @param {number} [isRead=1] - 1 for read, 0 for unread
+ * @returns {Promise<{success: boolean, changes?: number, error?: string}>}
+ */
 export async function markLinkAsRead(db, userId, linkId, isRead = 1) {
   try {
     const result = await db.prepare(`
@@ -254,6 +333,14 @@ export async function markLinkAsRead(db, userId, linkId, isRead = 1) {
   }
 }
 
+/**
+ * Sets or clears the favorite flag on a link.
+ * @param {D1Database} db
+ * @param {number} userId
+ * @param {string|number} linkId
+ * @param {number} [isFavorite=1] - 1 to favorite, 0 to unfavorite
+ * @returns {Promise<{success: boolean, changes?: number, error?: string}>}
+ */
 export async function toggleFavorite(db, userId, linkId, isFavorite = 1) {
   try {
     const result = await db.prepare(`
@@ -274,6 +361,11 @@ export async function toggleFavorite(db, userId, linkId, isFavorite = 1) {
   }
 }
 
+/**
+ * Checks database connectivity by running a simple count query.
+ * @param {D1Database} db
+ * @returns {Promise<{status: string, userCount?: number, error?: string}>}
+ */
 export async function checkDatabaseHealth(db) {
   try {
     // Simple query to check if database is accessible
@@ -290,6 +382,14 @@ export async function checkDatabaseHealth(db) {
   }
 }
 
+/**
+ * Records an analytics event. Fails silently to avoid disrupting user experience.
+ * @param {D1Database} db
+ * @param {number|null} userId
+ * @param {string} eventType
+ * @param {string} metadata - JSON string of event details
+ * @returns {Promise<{success: boolean, id?: number, error?: string}>}
+ */
 export async function trackEvent(db, userId, eventType, metadata) {
   try {
     const result = await db.prepare(`
@@ -303,99 +403,6 @@ export async function trackEvent(db, userId, eventType, metadata) {
     };
   } catch (error) {
     // Fail silently in production to avoid disrupting user experience
-    return { success: false, error: error.message };
-  }
-}
-
-// Reminder Engine Helpers
-export async function getAllUsers(db) {
-  try {
-    const result = await db.prepare('SELECT id, username FROM users').all();
-    return result.results || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-export async function getUserCategoryStats(db, userId) {
-  try {
-    const result = await db.prepare(`
-      SELECT category, COUNT(*) as count, SUM(is_favorite) as favorites
-      FROM links
-      WHERE user_id = ?
-      GROUP BY category
-      ORDER BY favorites DESC, count DESC
-    `).bind(userId).all();
-    return result.results || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-export async function createReminder(db, userId, data) {
-  try {
-    const { title, url, description, source, category } = data;
-    const result = await db.prepare(`
-      INSERT INTO reminders (user_id, title, url, description, source, category)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).bind(userId, title, url, description, source, category).run();
-    return { success: true, id: result.meta.last_row_id };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-export async function getUnseenReminders(db, userId) {
-  try {
-    const result = await db.prepare(`
-      SELECT id, title, url, description, source, category, created_at
-      FROM reminders
-      WHERE user_id = ? AND is_shown = 0
-      ORDER BY created_at DESC
-      LIMIT 1
-    `).bind(userId).all();
-    return result.results || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-export async function markReminderAsSeen(db, reminderId) {
-  try {
-    await db.prepare('UPDATE reminders SET is_shown = 1 WHERE id = ?').bind(reminderId).run();
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
-
-// Category Management logic
-export async function getUserCategories(db, userId) {
-  try {
-    const result = await db.prepare('SELECT id, name FROM categories WHERE user_id = ? ORDER BY name ASC').bind(userId).all();
-    return result.results || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-export async function createCategory(db, userId, name) {
-  try {
-    const result = await db.prepare('INSERT INTO categories (user_id, name) VALUES (?, ?)').bind(userId, name).run();
-    return { success: true, id: result.meta.last_row_id, name };
-  } catch (error) {
-    if (error.message.includes('UNIQUE constraint failed')) {
-      return { success: false, error: 'Category already exists' };
-    }
-    return { success: false, error: error.message };
-  }
-}
-
-export async function deleteCategory(db, userId, categoryId) {
-  try {
-    const result = await db.prepare('DELETE FROM categories WHERE id = ? AND user_id = ?').bind(categoryId, userId).run();
-    return { success: result.meta.changes > 0 };
-  } catch (error) {
     return { success: false, error: error.message };
   }
 }

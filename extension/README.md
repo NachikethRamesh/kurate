@@ -1,57 +1,63 @@
-# kurate Browser Extension
+# Kurate Browser Extension
 
-Save links to your kurate collection with one click from any webpage.
+Save links to your Kurate collection with one click from any webpage.
 
 ## Features
 
-- 🔐 Secure authentication with your kurate account
-- 📝 Edit link titles before saving
-- 🏷️ Categorize links (Article, Video, Podcast, Tool, Book, Course, etc.)
-- ✨ Clean, minimal interface matching kurate's design
-- 🚀 One-click saving from any webpage
+- One-click saving with auto-filled page title and URL
+- Edit titles before saving
+- Categorize links (Sports, Entertainment, Business, Technology, Education, Other)
+- Keyboard shortcut: `Ctrl+Shift+S` (Chrome) / `Ctrl+Shift+S` (Firefox)
+- Right-click context menu to save any page
+- Persistent login with secure token storage
 
 ## Installation
 
 ### Chrome
 
-1. Open Chrome and go to `chrome://extensions/`
-2. Enable "Developer mode" (top right toggle)
-3. Click "Load unpacked"
-4. Select the `extension` folder
-5. The kurate extension icon should appear in your toolbar
+1. Go to `chrome://extensions/`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Select the `extension/` folder
 
 ### Firefox
 
-1. Open Firefox and go to `about:debugging#/runtime/this-firefox`
-2. Click "Load Temporary Add-on"
-3. Navigate to the `extension` folder and select `manifest.json`
-4. The extension will be loaded temporarily (until browser restart)
+1. Go to `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Select `extension/manifest.json`
 
-**Note:** For permanent installation in Firefox, the extension needs to be signed by Mozilla.
+For permanent Firefox installation, the extension must be signed via [addons.mozilla.org](https://addons.mozilla.org).
 
 ## Usage
 
-1. Click the kurate extension icon in your browser toolbar
-2. Sign in with your kurate credentials (first time only)
-3. The current page title and URL will be pre-filled
-4. Edit the title if desired
-5. Select a category
-6. Click "Save to kurate"
-7. Done! Your link is now saved to your collection
+1. Click the Kurate icon in your toolbar
+2. Sign in with your Kurate account (first time only)
+3. The current page title and URL are pre-filled
+4. Edit the title if needed
+5. Select a category from the dropdown
+6. Click **Save to kurate**
 
-## Icons
+## File Structure
 
-The extension currently references icon files that need to be created. You can:
-- Use the favicon from the kurate website
-- Create custom icons at these sizes: 16x16, 32x32, 48x48, 128x128
-- Place them in an `icons/` folder within the extension directory
+```
+manifest.json    MV3 config (Chrome + Firefox compatible)
+background.js    Service worker — keyboard shortcut + context menu
+popup.html       Extension popup UI with accessible dropdown
+popup.js         Auth, metadata fetch, save logic
+popup.css        Styles
+icons/           16, 32, 48, 128px icons
+```
+
+## Packaging
+
+To create a ZIP for Chrome Web Store or Firefox Add-ons submission:
+
+```bash
+cd extension && zip -r ../kurate-extension.zip . -x "README.md"
+```
 
 ## Security
 
-- Authentication tokens are stored securely in browser local storage
-- Tokens are sent via Bearer authentication
-- No passwords are stored in the extension
-
-## Support
-
-For issues or questions, visit https://kurate.net
+- Auth tokens stored in `chrome.storage.local` / `browser.storage.local`
+- Bearer token authentication on all API calls
+- No passwords stored in the extension

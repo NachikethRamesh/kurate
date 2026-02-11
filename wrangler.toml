@@ -9,6 +9,7 @@ binding = "ASSETS"
 # No build command needed for Cloudflare Worker
 
 # Cloudflare D1 Database Configuration
+# The database_id is a non-secret identifier — requires Cloudflare API credentials to access
 # Run: npx wrangler d1 create kurate-db
 # Then replace the database_id below with the actual ID from the command output
 [[d1_databases]]
