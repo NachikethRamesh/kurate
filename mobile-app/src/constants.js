@@ -14,3 +14,6 @@ export const COLORS = {
 };
 
 export const API_URL = 'https://kurate.net/api';
+
+/** Standard category list used across all screens for link categorization. */
+export const CATEGORIES = ['Sports', 'Entertainment', 'Business', 'Technology', 'Education', 'Other'];

@@ -1,12 +1,18 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from './constants';
+import { setSharedToken, clearSharedToken } from './sharedStorage';
 
-// Helper to get token
+/** Retrieves the stored auth token from SecureStore. */
 const getToken = async () => {
     return await SecureStore.getItemAsync('authToken');
 };
 
+/**
+ * API client for all Kurate backend interactions.
+ * All methods return { success, ...data } or { success: false, error } on failure.
+ */
 export const api = {
+    /** Authenticates a user and stores the token in SecureStore + shared storage. */
     async login(username, password) {
         try {
             const response = await fetch(`${API_URL}/auth/login`, {
@@ -18,6 +24,7 @@ export const api = {
             if (data.success) {
                 await SecureStore.setItemAsync('authToken', data.token);
                 await SecureStore.setItemAsync('username', data.user.username);
+                setSharedToken(data.token);
             }
             return data;
         } catch (error) {
@@ -25,6 +32,7 @@ export const api = {
         }
     },
 
+    /** Registers a new user and stores the token in SecureStore + shared storage. */
     async register(username, password) {
         try {
             const response = await fetch(`${API_URL}/auth/register`, {
@@ -36,6 +44,7 @@ export const api = {
             if (data.success) {
                 await SecureStore.setItemAsync('authToken', data.token);
                 await SecureStore.setItemAsync('username', data.user.username);
+                setSharedToken(data.token);
             }
             return data;
         } catch (error) {
@@ -43,11 +52,14 @@ export const api = {
         }
     },
 
+    /** Clears all stored auth data from SecureStore and shared storage. */
     async logout() {
         await SecureStore.deleteItemAsync('authToken');
         await SecureStore.deleteItemAsync('username');
+        clearSharedToken();
     },
 
+    /** Fetches all links for the authenticated user. */
     async getLinks() {
         try {
             const token = await getToken();
@@ -63,6 +75,7 @@ export const api = {
         }
     },
 
+    /** Creates a new link with the given URL, title, and category. */
     async createLink({ url, title, category }) {
         try {
             const token = await getToken();
@@ -80,6 +93,7 @@ export const api = {
         }
     },
 
+    /** Toggles the favorite status of a link. */
     async toggleFavorite(linkId, isFavorite) {
         try {
             const token = await getToken();
@@ -97,6 +111,7 @@ export const api = {
         }
     },
 
+    /** Marks a link as read or unread. */
     async markRead(linkId, isRead = true) {
         try {
             const token = await getToken();
@@ -114,6 +129,7 @@ export const api = {
         }
     },
 
+    /** Deletes a link by ID. */
     async deleteLink(linkId) {
         try {
             const token = await getToken();
@@ -129,6 +145,7 @@ export const api = {
         }
     },
 
+    /** Fetches page title metadata for a given URL. */
     async getMetadata(url) {
         try {
             const response = await fetch(`${API_URL}/meta?url=${encodeURIComponent(url)}`);
@@ -138,17 +155,19 @@ export const api = {
         }
     },
 
-    async resetPassword(username, newPassword) {
+    /** Resets the user's password and stores the new token. */
+    async resetPassword(username, currentPassword, newPassword) {
         try {
             const response = await fetch(`${API_URL}/auth/reset-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, newPassword })
+                body: JSON.stringify({ username, currentPassword, newPassword })
             });
             const data = await response.json();
             if (data.success) {
                 await SecureStore.setItemAsync('authToken', data.token);
                 await SecureStore.setItemAsync('username', data.user.username);
+                setSharedToken(data.token);
             }
             return data;
         } catch (error) {

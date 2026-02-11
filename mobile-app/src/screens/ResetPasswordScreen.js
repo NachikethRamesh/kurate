@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { COLORS, API_URL } from '../constants';
+import { COLORS } from '../constants';
 import { api } from '../api';
-import { Ionicons } from '@expo/vector-icons';
 
 export default function ResetPasswordScreen({ navigation }) {
     const [username, setUsername] = useState('');
+    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleReset = async () => {
-        if (!username || !newPassword || !confirmPassword) {
+        if (!username || !currentPassword || !newPassword || !confirmPassword) {
             Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters');
             return;
         }
 
@@ -22,7 +27,7 @@ export default function ResetPasswordScreen({ navigation }) {
         }
 
         setLoading(true);
-        const result = await api.resetPassword(username, newPassword);
+        const result = await api.resetPassword(username, currentPassword, newPassword);
         setLoading(false);
 
         if (result.success) {
@@ -60,6 +65,18 @@ export default function ResetPasswordScreen({ navigation }) {
                                 placeholder="Enter your username"
                                 placeholderTextColor={COLORS.textTertiary}
                                 autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Current Password</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={currentPassword}
+                                onChangeText={setCurrentPassword}
+                                placeholder="Enter current password"
+                                placeholderTextColor={COLORS.textTertiary}
+                                secureTextEntry
                             />
                         </View>
 
@@ -119,24 +136,6 @@ const styles = StyleSheet.create({
     },
     keyboardView: {
         flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-    },
-    backBtn: {
-        padding: 4,
     },
     content: {
         padding: 32,

@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView, ScrollView } from 'react-native';
-import { COLORS } from '../constants';
+import { COLORS, CATEGORIES } from '../constants';
 import { api } from '../api';
 import { Ionicons } from '@expo/vector-icons';
-
-const CATEGORIES = ['Sports', 'Entertainment', 'Business', 'Technology', 'Education', 'Other'];
 
 export default function AddLinkScreen({ navigation }) {
     const [url, setUrl] = useState('');

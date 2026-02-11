@@ -25,16 +25,18 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
 
     const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
     const FAB_SIZE = 56;
+    const FAB_EDGE_MARGIN = 20; // Spacing from screen edges
+    const FAB_BOTTOM_INSET = 80; // Extra bottom clearance for tab bar
+    const FAB_INITIAL_TOP = 250; // Below the category scroll area
+    const FAB_GAP = 20; // Vertical gap between stacked FABs
     const BOUND_X = SCREEN_WIDTH - FAB_SIZE;
-    const BOUND_Y = SCREEN_HEIGHT - FAB_SIZE - 80; // Safer bottom bound
+    const BOUND_Y = SCREEN_HEIGHT - FAB_SIZE - FAB_BOTTOM_INSET;
 
-    // Rec: Right side, ~250px from top (below categories)
-    const initialRecX = SCREEN_WIDTH - 20 - FAB_SIZE;
-    const initialRecY = 250;
-
-    // Add: Right side, below Rec
-    const initialAddX = SCREEN_WIDTH - 20 - FAB_SIZE;
-    const initialAddY = 250 + FAB_SIZE + 20;
+    // Initial FAB positions: right-aligned, stacked vertically below categories
+    const initialRecX = SCREEN_WIDTH - FAB_EDGE_MARGIN - FAB_SIZE;
+    const initialRecY = FAB_INITIAL_TOP;
+    const initialAddX = SCREEN_WIDTH - FAB_EDGE_MARGIN - FAB_SIZE;
+    const initialAddY = FAB_INITIAL_TOP + FAB_SIZE + FAB_GAP;
 
     const panRec = useRef(new Animated.ValueXY({ x: initialRecX, y: initialRecY })).current;
     const panAdd = useRef(new Animated.ValueXY({ x: initialAddX, y: initialAddY })).current;
@@ -61,7 +63,10 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
         };
     }, []);
 
+    // Creates a PanResponder for a draggable FAB with momentum, wall bouncing, and collision avoidance.
+    // Each FAB tracks its own position and knows about the other FAB's position to prevent overlap.
     const createPanResponder = (animValue, currPosRef, otherPosRef) => PanResponder.create({
+        // Only capture gestures after a 5px drag threshold to avoid stealing taps
         onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
             return Math.abs(gestureState.dx) > 5 || Math.abs(gestureState.dy) > 5;
         },
@@ -83,7 +88,7 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
             let destX = currPosRef.current.x;
             let destY = currPosRef.current.y;
 
-            // ⚡ MOMENTUM: Add a bit of "throw" based on velocity
+            // Momentum: multiply velocity by a scalar to simulate "throw" inertia
             destX += gestureState.vx * 15;
             destY += gestureState.vy * 15;
 
@@ -107,9 +112,9 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
             const dist = Math.sqrt(Math.pow(destX - otherX, 2) + Math.pow(destY - otherY, 2));
 
             if (dist < FAB_SIZE) {
-                // Collision! Bounce away more aggressively
+                // Collision detected — push this FAB away from the other using angle-based separation
                 const angle = Math.atan2(destY - otherY, destX - otherX);
-                const targetDist = FAB_SIZE + 25;
+                const targetDist = FAB_SIZE + 25; // Extra 25px gap for visual breathing room
 
                 destX = otherX + Math.cos(angle) * targetDist;
                 destY = otherY + Math.sin(angle) * targetDist;
@@ -122,9 +127,9 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
 
             Animated.spring(animValue, {
                 toValue: { x: destX, y: destY },
-                useNativeDriver: true,
-                bounciness: 20, // Very bouncy, but valid
-                speed: 20       // Fast and snappy
+                useNativeDriver: false,
+                bounciness: 20,
+                speed: 20
             }).start();
         }
     });
@@ -206,6 +211,7 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
         fetchUsername();
     }, []);
 
+    // Memoized filtered & sorted links — recomputed only when links, tab, category, or search changes
     const filteredLinks = useMemo(() => {
         let filtered = [...links];
 
@@ -306,8 +312,6 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
         </TouchableOpacity>
     ), [links, styles]);
 
-
-
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.bg }}>
             {/* Main content in SafeArea */}
@@ -401,10 +405,6 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
                     numColumns={2}
                     columnWrapperStyle={styles.columnWrapper}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadLinks} />}
-                    ListHeaderComponent={
-                        <View style={styles.listHeader}>
-                        </View>
-                    }
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
                             <Ionicons name="leaf-outline" size={48} color={COLORS.textTertiary} style={{ marginBottom: 12 }} />
@@ -606,53 +606,6 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 100,
     },
-    listHeader: {
-        paddingHorizontal: 8,
-        marginBottom: 16,
-    },
-    recommendedCard: {
-        backgroundColor: '#fff',
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 24,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
-    },
-    recommendedTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-        marginBottom: 6,
-    },
-    recommendedHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        marginBottom: 12,
-    },
-    recIcon: {
-        width: 32,
-        height: 32,
-        backgroundColor: COLORS.primary,
-        borderRadius: 16,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-    },
-    recIconText: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: '800',
-        textTransform: 'uppercase',
-    },
     fab: {
         position: 'absolute',
         top: 0,
@@ -682,34 +635,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '800',
         textTransform: 'uppercase',
-    },
-    exploreBtn: {
-        backgroundColor: COLORS.primary,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    exploreBtnText: {
-        color: '#fff',
-        fontSize: 15,
-        fontWeight: '700',
-    },
-    introSection: {
-        paddingHorizontal: 12,
-        marginBottom: 24,
-    },
-    introHeader: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-        lineHeight: 34,
-        marginBottom: 16,
-    },
-    introSub: {
-        fontSize: 14,
-        color: COLORS.textSecondary,
-        lineHeight: 22,
     },
     columnWrapper: {
         justifyContent: 'space-between',

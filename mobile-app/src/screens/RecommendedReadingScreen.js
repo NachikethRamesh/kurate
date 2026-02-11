@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { rssService } from '../rss';
 import { api } from '../api';
 
-const CATEGORIES = ['all', 'sports', 'entertainment', 'business', 'technology', 'education', 'other'];
+// Lowercase to match RSS feed category values (distinct from the title-case CATEGORIES in constants.js)
+const FILTER_CATEGORIES = ['all', 'sports', 'entertainment', 'business', 'technology', 'education', 'other'];
 
 export default function RecommendedReadingScreen({ navigation }) {
     const [articles, setArticles] = useState([]);
@@ -14,10 +15,11 @@ export default function RecommendedReadingScreen({ navigation }) {
     const [activeCategory, setActiveCategory] = useState('all');
     const [curatedItems, setCuratedItems] = useState(new Set());
 
+    // Loads articles from RSS service. Shows cached results instantly on first visit,
+    // only showing loading spinner when cache is empty. Pull-to-refresh always fetches fresh data.
     const loadArticles = useCallback(async (isRefresh = false) => {
         if (isRefresh) setRefreshing(true);
         else {
-            // If we have cached articles, show them immediately without loading spinner
             const cached = rssService.getCachedArticles();
             if (cached.length > 0) {
                 setArticles(cached);
@@ -113,7 +115,7 @@ export default function RecommendedReadingScreen({ navigation }) {
 
             <View style={styles.filterContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                    {CATEGORIES.map(cat => (
+                    {FILTER_CATEGORIES.map(cat => (
                         <TouchableOpacity
                             key={cat}
                             style={[styles.filterBtn, activeCategory === cat && styles.filterBtnActive]}
@@ -171,20 +173,6 @@ const styles = StyleSheet.create({
     headerTitleContainer: {
         flex: 1,
         alignItems: 'center',
-    },
-    recIcon: {
-        width: 24,
-        height: 24,
-        backgroundColor: COLORS.primary,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    recIconText: {
-        color: '#fff',
-        fontSize: 8,
-        fontWeight: '800',
-        textTransform: 'uppercase',
     },
     headerTitle: {
         fontSize: 18,

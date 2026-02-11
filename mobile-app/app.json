@@ -5,9 +5,21 @@
     "version": "1.0.0",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FDFAF8"
+    },
+    "orientation": "portrait",
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.kurate.app"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.kurate.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.kurate.app"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +32,21 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-font",
+      ["expo-share-extension", {
+        "activationRules": [
+          { "type": "url", "max": 1 },
+          { "type": "text" }
+        ],
+        "height": 480,
+        "backgroundColor": { "red": 253, "green": 250, "blue": 248, "alpha": 255 }
+      }]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d3c526fa-4594-4898-8a06-7b7e561a9d89"
+      }
+    }
   }
 }

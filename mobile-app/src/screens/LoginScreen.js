@@ -9,6 +9,8 @@ export default function LoginScreen({ navigation, setIsAuthenticated }) {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Handles both login and registration — the isLogin toggle determines which API call is made.
+    // On success, sets the app-wide auth state which triggers navigation to HomeScreen.
     const handleAuth = async () => {
         if (!username || !password) {
             Alert.alert('Error', 'Please fill in all fields');
@@ -16,14 +18,9 @@ export default function LoginScreen({ navigation, setIsAuthenticated }) {
         }
 
         setLoading(true);
-        let result;
-
-        if (isLogin) {
-            result = await api.login(username, password);
-        } else {
-            result = await api.register(username, password);
-        }
-
+        const result = isLogin
+            ? await api.login(username, password)
+            : await api.register(username, password);
         setLoading(false);
 
         if (result.success) {

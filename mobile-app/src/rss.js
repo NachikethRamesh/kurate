@@ -1,4 +1,4 @@
-
+/** RSS feed sources organized by category for the Recommended Reading screen. */
 const FEEDS = [
     { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
     { name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'sports' },
@@ -20,12 +20,22 @@ const FEEDS = [
 
 let cachedArticles = [];
 let lastFetchTime = 0;
-const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+const CACHE_DURATION = 15 * 60 * 1000; // 15 min — balances freshness with avoiding redundant API calls
 
+/**
+ * Strips HTML tags from a string, returning plain text.
+ * @param {string} html - HTML string to strip
+ * @returns {string} Plain text content
+ */
 const stripHtml = (html) => {
     return html.replace(/<[^>]*>?/gm, '').trim();
 };
 
+/**
+ * Extracts the domain from a URL string (strips www. prefix).
+ * @param {string} url
+ * @returns {string} Domain name
+ */
 const extractDomain = (url) => {
     try {
         const domain = url.split('/')[2].replace('www.', '');
@@ -40,6 +50,13 @@ export const rssService = {
         return cachedArticles;
     },
 
+    /**
+     * Fetches articles from all RSS feeds via rss2json API. Returns cached results if
+     * the cache is still valid (within CACHE_DURATION), unless force=true.
+     * Deduplicates by URL and sorts by date descending.
+     * @param {boolean} [force=false] - Skip cache and fetch fresh data
+     * @returns {Promise<Array>} Array of article objects
+     */
     async fetchArticles(force = false) {
         // Return cache if valid and not forcing
         if (!force && cachedArticles.length > 0 && (Date.now() - lastFetchTime < CACHE_DURATION)) {
