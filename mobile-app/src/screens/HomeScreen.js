@@ -324,13 +324,22 @@ export default function HomeScreen({ navigation, setIsAuthenticated }) {
                         </View>
                         <Text style={styles.logoText}>kurate</Text>
                     </View>
-                    <TouchableOpacity
-                        onPress={handleLogout}
-                        style={styles.logoutBtn}
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="log-out-outline" size={22} color={COLORS.textSecondary} />
-                    </TouchableOpacity>
+                    <View style={styles.headerActions}>
+                        <TouchableOpacity
+                            onPress={() => navigation.navigate('Profile')}
+                            style={styles.logoutBtn}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="person-outline" size={22} color={COLORS.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleLogout}
+                            style={styles.logoutBtn}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="log-out-outline" size={22} color={COLORS.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Content Title */}
@@ -492,6 +501,11 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: COLORS.textPrimary,
         letterSpacing: -0.5,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     logoutBtn: {
         padding: 4,

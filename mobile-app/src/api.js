@@ -155,6 +155,54 @@ export const api = {
         }
     },
 
+    /** Updates the user's username and stores the new token. */
+    async updateUsername(newUsername) {
+        try {
+            const token = await getToken();
+            const response = await fetch(`${API_URL}/auth/update-username`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ newUsername })
+            });
+            const data = await response.json();
+            if (data.success) {
+                await SecureStore.setItemAsync('authToken', data.token);
+                await SecureStore.setItemAsync('username', data.user.username);
+                setSharedToken(data.token);
+            }
+            return data;
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    },
+
+    /** Permanently deletes the user's account after password verification. */
+    async deleteAccount(password) {
+        try {
+            const token = await getToken();
+            const response = await fetch(`${API_URL}/auth/delete-account`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+            const data = await response.json();
+            if (data.success) {
+                await SecureStore.deleteItemAsync('authToken');
+                await SecureStore.deleteItemAsync('username');
+                clearSharedToken();
+            }
+            return data;
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    },
+
     /** Resets the user's password and stores the new token. */
     async resetPassword(username, currentPassword, newPassword) {
         try {

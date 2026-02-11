@@ -1,20 +1,26 @@
-import { MMKV } from 'react-native-mmkv';
+let storage = null;
 
-const storage = new MMKV({
-    id: 'kurate-shared',
-    path: `group.com.kurate.app`,
-});
+try {
+    const { MMKV } = require('react-native-mmkv');
+    storage = new MMKV({
+        id: 'kurate-shared',
+        path: `group.com.kurate.app`,
+    });
+} catch (e) {
+    // MMKV not available (e.g. Expo Go) — shared storage disabled
+}
 
 const TOKEN_KEY = 'authToken';
 
 export const setSharedToken = (token) => {
-    storage.set(TOKEN_KEY, token);
+    if (storage) storage.set(TOKEN_KEY, token);
 };
 
 export const getSharedToken = () => {
-    return storage.getString(TOKEN_KEY) || null;
+    if (storage) return storage.getString(TOKEN_KEY) || null;
+    return null;
 };
 
 export const clearSharedToken = () => {
-    storage.delete(TOKEN_KEY);
+    if (storage) storage.delete(TOKEN_KEY);
 };

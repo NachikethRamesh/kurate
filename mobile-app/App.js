@@ -13,6 +13,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import AddLinkScreen from './src/screens/AddLinkScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import RecommendedReadingScreen from './src/screens/RecommendedReadingScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import { COLORS } from './src/constants';
 
 const Stack = createNativeStackNavigator();
@@ -99,6 +100,9 @@ export default function App() {
                             </Stack.Screen>
                             <Stack.Screen name="AddLink" component={AddLinkScreen} />
                             <Stack.Screen name="RecommendedReading" component={RecommendedReadingScreen} />
+                            <Stack.Screen name="Profile">
+                                {props => <ProfileScreen {...props} setIsAuthenticated={setIsAuthenticated} />}
+                            </Stack.Screen>
                         </>
                     )}
                 </Stack.Navigator>
