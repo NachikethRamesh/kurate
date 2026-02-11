@@ -107,6 +107,161 @@ export default {
             }
         }
 
+        // Tweet embed endpoint — renders a tweet using Twitter's widget JS
+        if (path === '/api/embed/tweet') {
+            const tweetUrl = url.searchParams.get('url');
+            if (!tweetUrl) return createErrorResponse('Missing URL', 400);
+            const embedHtml = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>*{margin:0;padding:0;box-sizing:border-box}body{display:flex;justify-content:center;align-items:start;padding:24px;background:#fff;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,sans-serif}.twitter-tweet{margin:0!important}</style>
+</head><body>
+<blockquote class="twitter-tweet" data-dnt="true"><a href="${tweetUrl.replace(/"/g, '&quot;')}"></a></blockquote>
+<script async src="https://platform.twitter.com/widgets.js"></script>
+</body></html>`;
+            return new Response(embedHtml, {
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            });
+        }
+
+        // Proxy endpoint — fetches a URL and strips X-Frame-Options / CSP frame-ancestors
+        // so the page can be displayed inside the in-app iframe viewer.
+        if (path === '/api/proxy') {
+            const targetUrl = url.searchParams.get('url');
+            if (!targetUrl) return createErrorResponse('Missing URL', 400);
+
+            try {
+                const target = new URL(targetUrl);
+                // Only allow http(s)
+                if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+                    return createErrorResponse('Invalid URL protocol', 400);
+                }
+
+                const proxyResp = await fetch(targetUrl, {
+                    headers: {
+                        'User-Agent': request.headers.get('User-Agent') || 'Mozilla/5.0',
+                        'Accept': request.headers.get('Accept') || 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language': request.headers.get('Accept-Language') || 'en-US,en;q=0.5',
+                    },
+                    redirect: 'follow',
+                });
+
+                // Clone headers and strip frame-blocking ones
+                const newHeaders = new Headers(proxyResp.headers);
+                newHeaders.delete('X-Frame-Options');
+                newHeaders.delete('x-frame-options');
+
+                // Strip entire CSP — many directives (script-src, style-src, connect-src)
+                // break the page when served from a different origin
+                newHeaders.delete('Content-Security-Policy');
+                newHeaders.delete('Content-Security-Policy-Report-Only');
+
+                const contentType = (proxyResp.headers.get('Content-Type') || '').toLowerCase();
+
+                // For HTML responses, inject <base> tag and (for non-embed sites) ad-blocking
+                if (contentType.includes('text/html')) {
+                    let html = await proxyResp.text();
+                    const baseTag = '<base href="' + target.origin + '/">';
+
+                    // Skip ad-blocking for known embed providers (their JS breaks with it)
+                    const skipAdBlock = target.hostname.includes('spotify.com') || target.hostname.includes('twitter.com') || target.hostname.includes('x.com');
+
+                    let adBlockCSS = '';
+                    let adBlockJS = '';
+
+                    if (!skipAdBlock) {
+                    // CSS: hide common ad containers instantly (no flash)
+                    adBlockCSS = `<style data-kurate-adblock>
+.adsbygoogle,[id^="google_ads"],[id^="div-gpt-ad"],[class*="GoogleAd"],
+[id*="-ad-"],[class*="-ad-container"],[class*="ad-wrapper"],[class*="ad-slot"],
+[class*="ad-banner"],[class*="ad-unit"],[class*="ad_unit"],[class*="advert"],
+[data-ad],[data-ad-slot],[data-google-query-id],
+[class*="sponsored"],[id*="sponsored"],[class*="Sponsored"],
+iframe[src*="doubleclick.net"],iframe[src*="googlesyndication"],
+iframe[src*="amazon-adsystem"],iframe[src*="adnxs.com"],
+iframe[src*="facebook.com/plugins"],iframe[src*="outbrain.com"],
+iframe[src*="taboola"],iframe[src*="criteo"],
+[class*="taboola"],[id*="taboola"],[class*="outbrain"],[id*="outbrain"],
+[class*="newsletter-signup"],[class*="newsletter-popup"],
+[class*="paywall"],[class*="pw-"],[id*="paywall"],
+[class*="cookie-banner"],[class*="cookie-consent"],[id*="cookie-banner"],
+[class*="CookieBanner"],[class*="consent-banner"],[id*="onetrust"],
+[class*="overlay-ad"],[class*="interstitial"],[class*="popup-ad"],
+[class*="sticky-ad"],[class*="floating-ad"],[class*="bottom-ad"],
+[aria-label="advertisement"],[aria-label="Advertisement"],
+amp-ad,amp-embed{display:none!important;height:0!important;overflow:hidden!important}
+</style>`;
+
+                    // JS: remove ad scripts before they execute + MutationObserver cleanup
+                    adBlockJS = `<script data-kurate-adblock>
+(function(){
+  var adDomains=['googlesyndication.com','doubleclick.net','google-analytics.com',
+    'googletagmanager.com','googletagservices.com','amazon-adsystem.com',
+    'adnxs.com','taboola.com','outbrain.com','criteo.com','moatads.com',
+    'scorecardresearch.com','chartbeat.com','optimizely.com','newrelic.com',
+    'hotjar.com','facebook.net/en_US/fbevents','connect.facebook.net'];
+  var adSel=['[id^="google_ads"]','[id^="div-gpt-ad"]','.adsbygoogle',
+    '[data-ad]','[data-ad-slot]','[class*="taboola"]','[class*="outbrain"]',
+    '[class*="ad-container"]','[class*="ad-wrapper"]','[class*="ad-slot"]',
+    '[class*="ad-banner"]','[class*="advert"]','[class*="sponsored"]',
+    '[class*="cookie-banner"]','[class*="cookie-consent"]','[id*="cookie-banner"]',
+    '[class*="consent-banner"]','[id*="onetrust"]',
+    '[class*="paywall"]','[id*="paywall"]'].join(',');
+  function isAdScript(el){
+    var s=el.src||'';
+    for(var i=0;i<adDomains.length;i++){if(s.indexOf(adDomains[i])!==-1)return true}
+    return false;
+  }
+  function clean(){
+    document.querySelectorAll(adSel).forEach(function(el){el.remove()});
+  }
+  // Block ad scripts as they're inserted
+  new MutationObserver(function(muts){
+    muts.forEach(function(m){
+      m.addedNodes.forEach(function(n){
+        if(n.nodeType!==1)return;
+        if(n.tagName==='SCRIPT'&&isAdScript(n)){n.remove();return}
+        if(n.tagName==='IFRAME'){
+          var s=n.src||'';
+          for(var i=0;i<adDomains.length;i++){if(s.indexOf(adDomains[i])!==-1){n.remove();return}}
+        }
+        if(n.matches&&n.matches(adSel))n.remove();
+      });
+    });
+  }).observe(document.documentElement,{childList:true,subtree:true});
+  // Clean on load
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',clean)}
+  else{clean()}
+  window.addEventListener('load',clean);
+})();
+</script>`;
+                    }
+
+                    // Insert after <head> or at the start of the document
+                    if (html.match(/<head[^>]*>/i)) {
+                        html = html.replace(/<head([^>]*)>/i, '<head$1>' + baseTag + adBlockCSS + adBlockJS);
+                    } else if (html.match(/<html[^>]*>/i)) {
+                        html = html.replace(/<html([^>]*)>/i, '<html$1><head>' + baseTag + adBlockCSS + adBlockJS + '</head>');
+                    } else {
+                        html = baseTag + adBlockCSS + adBlockJS + html;
+                    }
+
+                    return new Response(html, {
+                        status: proxyResp.status,
+                        headers: newHeaders,
+                    });
+                }
+
+                return new Response(proxyResp.body, {
+                    status: proxyResp.status,
+                    headers: newHeaders,
+                });
+            } catch (error) {
+                console.error('Proxy fetch error:', error);
+                return createErrorResponse('Failed to fetch URL', 502);
+            }
+        }
+
         // Analytics endpoint — obfuscated path to avoid ad-blockers
         if (path === '/api/system/sync' && request.method === 'POST') {
             try {
@@ -432,6 +587,45 @@ function getIndexHTML() {
                     Curate
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- Link Viewer Modal -->
+    <div id="linkViewerModal" class="link-viewer-modal hidden">
+        <div class="link-viewer-backdrop" onclick="window.app.closeLinkViewer()"></div>
+        <div class="link-viewer-content">
+            <div class="link-viewer-header">
+                <button class="link-viewer-close" onclick="window.app.closeLinkViewer()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+                <span class="link-viewer-url" id="linkViewerUrl"></span>
+                <button class="link-viewer-external" onclick="window.app.openLinkExternal()" title="Open in new tab">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                        <polyline points="15 3 21 3 21 9"/>
+                        <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="link-viewer-body">
+                <iframe id="linkViewerIframe" class="link-viewer-iframe" allowfullscreen allow="fullscreen; autoplay; encrypted-media; picture-in-picture"></iframe>
+                <div id="linkViewerLoading" class="link-viewer-loading">
+                    <div class="link-viewer-spinner"></div>
+                    <p>Loading page...</p>
+                </div>
+                <div id="linkViewerFallback" class="link-viewer-fallback hidden">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                        <line x1="2" y1="12" x2="22" y2="3"/>
+                    </svg>
+                    <p class="link-viewer-fallback-msg">This site cannot be viewed here</p>
+                    <button class="link-viewer-fallback-btn" onclick="window.app.openLinkExternal()">Open in Browser</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1751,6 +1945,284 @@ body {
         right: 16px;
     }
 }
+
+/* ===== Link Viewer Modal ===== */
+.link-viewer-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.link-viewer-modal.hidden {
+    display: none;
+}
+
+.link-viewer-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.link-viewer-content {
+    position: relative;
+    width: 96vw;
+    height: 94vh;
+    background: #fff;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.link-viewer-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #E5E7EB;
+    background: #FAFAFA;
+    flex-shrink: 0;
+}
+
+.link-viewer-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.link-viewer-close:hover {
+    background: #F3F4F6;
+    color: var(--text-primary);
+}
+
+.link-viewer-url {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.link-viewer-external {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.link-viewer-external:hover {
+    background: #F3F4F6;
+    color: var(--text-primary);
+}
+
+.link-viewer-body {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+.link-viewer-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.link-viewer-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    gap: 16px;
+    transition: opacity 0.3s ease;
+}
+
+.link-viewer-loading.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.link-viewer-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #E5E7EB;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.link-viewer-loading p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.link-viewer-fallback {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    gap: 12px;
+}
+
+.link-viewer-fallback.hidden {
+    display: none;
+}
+
+.link-viewer-fallback-msg {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.link-viewer-fallback-btn {
+    margin-top: 8px;
+    padding: 10px 24px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.link-viewer-fallback-btn:hover {
+    filter: brightness(1.05);
+}
+
+/* YouTube theater mode — no chrome, just the video */
+.link-viewer-youtube .link-viewer-backdrop {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.link-viewer-youtube .link-viewer-content {
+    background: #000;
+    border-radius: 12px;
+    width: 80vw;
+    height: 0;
+    padding-bottom: 45vw; /* 16:9 ratio of 80vw */
+    max-width: 1280px;
+    overflow: visible;
+}
+
+.link-viewer-youtube .link-viewer-header {
+    position: absolute;
+    top: -48px;
+    left: 0;
+    right: 0;
+    border: none;
+    background: transparent;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    padding: 8px 12px;
+}
+
+.link-viewer-youtube:hover .link-viewer-header {
+    opacity: 1;
+}
+
+.link-viewer-youtube .link-viewer-close {
+    color: rgba(255,255,255,0.8);
+    background: rgba(0,0,0,0.5);
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+}
+
+.link-viewer-youtube .link-viewer-close:hover {
+    color: #fff;
+    background: rgba(0,0,0,0.7);
+}
+
+/* Hide generic URL + external icon in header for YouTube */
+.link-viewer-youtube .link-viewer-url,
+.link-viewer-youtube .link-viewer-external {
+    display: none;
+}
+
+.link-viewer-youtube .link-viewer-body {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.link-viewer-youtube .link-viewer-iframe {
+    border-radius: 12px;
+}
+
+.link-viewer-youtube .link-viewer-loading {
+    background: #000;
+    border-radius: 12px;
+}
+
+.link-viewer-youtube .link-viewer-loading p {
+    color: rgba(255,255,255,0.6);
+}
+
+.link-viewer-youtube .link-viewer-spinner {
+    border-color: #333;
+    border-top-color: #ff0000;
+}
+
+/* Spotify compact modal — centered, not fullscreen */
+.link-viewer-spotify .link-viewer-content {
+    width: 420px;
+    height: 600px;
+    max-width: 95vw;
+    max-height: 85vh;
+}
+
+/* Tweet embed modal */
+.link-viewer-tweet .link-viewer-content {
+    width: 600px;
+    height: 80vh;
+    max-width: 95vw;
+}
 `;
 }
 
@@ -1771,6 +2243,8 @@ class LinksApp {
         this.currentTab = this.getInitialTab();
         this.searchQuery = '';
         this.categoryFilter = 'all';
+        this.linkViewerUrl = '';
+        this.linkViewerTimeout = null;
         this.init();
     }
 
@@ -2234,6 +2708,11 @@ class LinksApp {
         // Close modals/drawers on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                const linkViewer = document.getElementById('linkViewerModal');
+                if (linkViewer && !linkViewer.classList.contains('hidden')) {
+                    this.closeLinkViewer();
+                    return;
+                }
                 const addLinkModalEl = document.getElementById('addLinkModal');
                 if (addLinkModalEl && !addLinkModalEl.classList.contains('hidden')) {
                     this.closeAddLinkModal();
@@ -2622,7 +3101,7 @@ linksContainer.innerHTML = sortedLinks.map(link => {
                 
                 <div class="card-main">
                     <h3 class="card-title">
-                        <a href="\${link.url}" target="_blank" rel="noopener noreferrer">\${link.title || domain}</a>
+                        <a href="\${link.url}" onclick="event.preventDefault(); app.openLinkViewer(this.href)">\${link.title || domain}</a>
                         \${link.isPending ? '<span class="pending-indicator">...</span>' : ''}
                     </h3>
                     <div class="card-domain">\${domain}</div>
@@ -2745,6 +3224,174 @@ closeAddLinkModal() {
 }
 
 // ==========================================
+// Link Viewer (Iframe Modal)
+// ==========================================
+
+openLinkViewer(url) {
+    this.linkViewerUrl = url;
+    const modal = document.getElementById('linkViewerModal');
+    const iframe = document.getElementById('linkViewerIframe');
+    const loading = document.getElementById('linkViewerLoading');
+    const fallback = document.getElementById('linkViewerFallback');
+    const urlDisplay = document.getElementById('linkViewerUrl');
+
+    if (!modal || !iframe) return;
+
+    // Show hostname in header
+    try {
+        urlDisplay.textContent = new URL(url).hostname;
+    } catch {
+        urlDisplay.textContent = url;
+    }
+
+    // Reset state
+    loading.classList.remove('fade-out');
+    loading.style.display = '';
+    fallback.classList.add('hidden');
+
+    // Show modal
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Detect YouTube/Spotify/Twitter URLs and use native embed players
+    const ytId = this.getYouTubeId(url);
+    const spotifyEmbed = this.getSpotifyEmbed(url);
+    const tweetUrl = this.getTweetUrl(url);
+    let iframeSrc;
+    if (ytId) {
+        iframeSrc = 'https://www.youtube.com/embed/' + ytId + '?autoplay=1&rel=0&modestbranding=1&iv_load_policy=3';
+        urlDisplay.textContent = 'YouTube';
+        modal.classList.add('link-viewer-youtube');
+    } else if (spotifyEmbed) {
+        iframeSrc = '/api/proxy?url=' + encodeURIComponent(spotifyEmbed);
+        urlDisplay.textContent = 'Spotify';
+        modal.classList.add('link-viewer-spotify');
+    } else if (tweetUrl) {
+        iframeSrc = '/api/embed/tweet?url=' + encodeURIComponent(tweetUrl);
+        urlDisplay.textContent = 'X';
+        modal.classList.add('link-viewer-tweet');
+    } else {
+        iframeSrc = '/api/proxy?url=' + encodeURIComponent(url);
+    }
+    const isNativeEmbed = !!(ytId || tweetUrl);
+    iframe.src = iframeSrc;
+
+    if (this.linkViewerTimeout) clearTimeout(this.linkViewerTimeout);
+
+    if (isNativeEmbed) {
+        // YouTube embed — just hide loading on load, no fallback
+        iframe.onload = () => {
+            loading.classList.add('fade-out');
+            setTimeout(() => { loading.style.display = 'none'; }, 300);
+        };
+        iframe.onerror = null;
+    } else {
+        // Proxied pages — timeout fallback after 8s
+        this.linkViewerTimeout = setTimeout(() => {
+            if (loading && !loading.classList.contains('fade-out')) {
+                loading.style.display = 'none';
+                fallback.classList.remove('hidden');
+            }
+        }, 8000);
+
+        iframe.onload = () => {
+            clearTimeout(this.linkViewerTimeout);
+            try {
+                const doc = iframe.contentDocument;
+                if (doc && doc.location && doc.location.href === 'about:blank' && this.linkViewerUrl !== 'about:blank') {
+                    loading.style.display = 'none';
+                    fallback.classList.remove('hidden');
+                    return;
+                }
+            } catch (e) {}
+            loading.classList.add('fade-out');
+            setTimeout(() => { loading.style.display = 'none'; }, 300);
+        };
+
+        iframe.onerror = () => {
+            clearTimeout(this.linkViewerTimeout);
+            loading.style.display = 'none';
+            fallback.classList.remove('hidden');
+        };
+    }
+}
+
+closeLinkViewer() {
+    const modal = document.getElementById('linkViewerModal');
+    const iframe = document.getElementById('linkViewerIframe');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('link-viewer-spotify');
+        modal.classList.remove('link-viewer-youtube');
+        modal.classList.remove('link-viewer-tweet');
+        document.body.style.overflow = '';
+    }
+    if (iframe) {
+        iframe.src = 'about:blank';
+        iframe.onload = null;
+        iframe.onerror = null;
+    }
+    if (this.linkViewerTimeout) {
+        clearTimeout(this.linkViewerTimeout);
+        this.linkViewerTimeout = null;
+    }
+    this.linkViewerUrl = '';
+}
+
+openLinkExternal() {
+    if (this.linkViewerUrl) {
+        window.open(this.linkViewerUrl, '_blank');
+    }
+}
+
+getYouTubeId(url) {
+    try {
+        const u = new URL(url);
+        const host = u.hostname.replace('www.', '');
+        if (host === 'youtube.com' || host === 'm.youtube.com') {
+            if (u.pathname === '/watch') return u.searchParams.get('v');
+            const embedMatch = u.pathname.match(/^\\/embed\\/([a-zA-Z0-9_-]{11})/);
+            if (embedMatch) return embedMatch[1];
+            const shortsMatch = u.pathname.match(/^\\/shorts\\/([a-zA-Z0-9_-]{11})/);
+            if (shortsMatch) return shortsMatch[1];
+            const liveMatch = u.pathname.match(/^\\/live\\/([a-zA-Z0-9_-]{11})/);
+            if (liveMatch) return liveMatch[1];
+        }
+        if (host === 'youtu.be') {
+            const id = u.pathname.slice(1);
+            if (id && id.length === 11) return id;
+        }
+    } catch (e) {}
+    return null;
+}
+
+getSpotifyEmbed(url) {
+    try {
+        const u = new URL(url);
+        const host = u.hostname.replace('www.', '');
+        if (host !== 'open.spotify.com') return null;
+        // Matches /track/ID, /album/ID, /playlist/ID, /episode/ID, /show/ID, /artist/ID
+        const match = u.pathname.match(/^\\/(track|album|playlist|episode|show|artist)\\/([a-zA-Z0-9]+)/);
+        if (match) {
+            return 'https://open.spotify.com/embed/' + match[1] + '/' + match[2] + '?utm_source=generator&theme=0';
+        }
+    } catch (e) {}
+    return null;
+}
+
+getTweetUrl(url) {
+    try {
+        const u = new URL(url);
+        const host = u.hostname.replace('www.', '');
+        if (host !== 'x.com' && host !== 'twitter.com') return null;
+        // Matches /<user>/status/<id>
+        const match = u.pathname.match(/^\\/[a-zA-Z0-9_]+\\/status\\/([0-9]+)/);
+        if (match) return url;
+    } catch (e) {}
+    return null;
+}
+
+// ==========================================
 // Sidebar Recommended Reading
 // ==========================================
 
@@ -2773,7 +3420,7 @@ renderSidebarRecommended() {
     container.innerHTML = articlesToShow.map(article => {
         const timeAgo = this.getTimeAgo(article.pubDate);
         return \`
-            <article class="recommended-sidebar-article" onclick="window.open('\${article.url}', '_blank')">
+            <article class="recommended-sidebar-article" onclick="window.app.openLinkViewer('\${article.url}')">
                 <div class="recommended-article-source">
                     <span class="recommended-article-source-badge">\${article.source}</span>
                     <span class="recommended-article-date">\${timeAgo}</span>
