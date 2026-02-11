@@ -302,12 +302,17 @@ function getIndexHTML() {
                         <h2 class="content-title" id="userGreeting">Curated List</h2>
                     </div>
 
-                    <div class="search-container">
-                        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input type="text" id="searchInput" class="search-input" placeholder="Search through your curated list..." autocomplete="off">
+                    <div class="search-row">
+                        <div class="search-container">
+                            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input type="text" id="searchInput" class="search-input" placeholder="Search through your curated list..." autocomplete="off">
+                        </div>
+                        <button class="add-link-fab" id="addLinkFab" onclick="window.app.openAddLinkModal()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </button>
                     </div>
 
                     <section class="links-container">
@@ -319,55 +324,24 @@ function getIndexHTML() {
                     </section>
                 </main>
 
-                <!-- Right Sidebar: Add Link -->
+                <!-- Right Sidebar: Recommended Reading -->
                 <aside class="sidebar-right">
-                    <div class="sidebar-card">
-                        <div class="sidebar-header">
-                             <h2 class="sidebar-title-small">
-                                 Add Link
-                             </h2>
+                    <div class="recommended-sidebar">
+                        <h2 class="recommended-sidebar-header">Recommended Reading</h2>
+                        <div class="recommended-sidebar-filters" id="sidebarFilters">
+                            <button class="recommended-filter active" data-category="all">All</button>
+                            <button class="recommended-filter" data-category="sports">Sports</button>
+                            <button class="recommended-filter" data-category="entertainment">Entertainment</button>
+                            <button class="recommended-filter" data-category="business">Business</button>
+                            <button class="recommended-filter" data-category="technology">Technology</button>
+                            <button class="recommended-filter" data-category="education">Education</button>
+                            <button class="recommended-filter" data-category="other">Other</button>
                         </div>
-                        <form id="addLinkForm" class="add-link-form">
-                            <div class="form-group">
-                                <label for="linkUrl" class="form-label">Link</label>
-                                <input type="url" id="linkUrl" class="form-input" placeholder="https://..." required autocomplete="off">
+                        <div class="recommended-sidebar-list" id="recommendedSidebarArticles">
+                            <div class="recommended-loading">
+                                <div class="loading-spinner"></div>
+                                <p>Loading articles...</p>
                             </div>
-                            
-                             <div class="form-group">
-                                 <label class="form-label">Category</label>
-                                 <div class="custom-select-wrapper">
-                                     <input type="hidden" id="linkCategory" value="">
-                                     <button type="button" class="custom-select-trigger" id="categoryTrigger">
-                                         <span id="categoryText">Select Category</span>
-                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                             <path d="M6 9l6 6 6-6"/>
-                                         </svg>
-                                     </button>
-                                     <div class="custom-options" id="categoryOptions">
-                                         <div class="custom-option" data-value="Sports">Sports</div>
-                                         <div class="custom-option" data-value="Entertainment">Entertainment</div>
-                                         <div class="custom-option" data-value="Business">Business</div>
-                                         <div class="custom-option" data-value="Technology">Technology</div>
-                                         <div class="custom-option" data-value="Education">Education</div>
-                                         <div class="custom-option" data-value="Other">Other</div>
-                                     </div>
-                                 </div>
-                             </div>
-                            
-                            <button type="submit" id="addBtn" class="btn btn-primary btn-full">
-                                Curate
-                            </button>
-                        </form>
-                    </div>
-
-                    <!-- Recommended Reading Section -->
-                    <div class="sidebar-card recommended-card">
-                        <div class="recommended-section">
-                            <h3 class="sidebar-title-small recommended-sidebar-title">Recommended Reading</h3>
-                            <p class="recommended-desc">Discover trending articles from across the web</p>
-                            <button id="openRecommendedBtn" class="btn btn-primary">
-                                Explore Articles
-                            </button>
                         </div>
                     </div>
                 </aside>
@@ -426,36 +400,47 @@ function getIndexHTML() {
         </div>
     </div>
 
-    <!-- Recommended Reading Portal Modal -->
-    <div id="recommendedModal" class="recommended-modal hidden">
-        <div class="recommended-modal-backdrop" onclick="window.app.closeRecommendedPortal()"></div>
-        <div class="recommended-modal-content">
-            <div class="recommended-modal-header">
-                <div class="recommended-modal-title-section">
-                    <h2 class="recommended-modal-title">Recommended Reading</h2>
-                    <p class="recommended-modal-subtitle">Trending articles from the past 7 days</p>
-                </div>
-                <button class="recommended-modal-close" onclick="window.app.closeRecommendedPortal()">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Desktop Add Link Modal -->
+    <div id="addLinkModal" class="add-link-modal hidden">
+        <div class="add-link-modal-backdrop" onclick="window.app.closeAddLinkModal()"></div>
+        <div class="add-link-modal-content">
+            <div class="add-link-modal-header">
+                <h2 class="add-link-modal-title">Add Link</h2>
+                <button class="add-link-modal-close" onclick="window.app.closeAddLinkModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 6L6 18M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
-            <div class="recommended-modal-filters">
-                <button class="recommended-filter active" data-source="all">All</button>
-                <button class="recommended-filter" data-source="sports">Sports</button>
-                <button class="recommended-filter" data-source="entertainment">Entertainment</button>
-                <button class="recommended-filter" data-source="business">Business</button>
-                <button class="recommended-filter" data-source="technology">Technology</button>
-                <button class="recommended-filter" data-source="education">Education</button>
-                <button class="recommended-filter" data-source="other">Other</button>
-            </div>
-            <div id="recommendedArticles" class="recommended-articles-grid">
-                <div class="recommended-loading">
-                    <div class="loading-spinner"></div>
-                    <p>Loading trending articles...</p>
+            <form id="addLinkForm" class="add-link-form">
+                <div class="form-group">
+                    <label for="linkUrl" class="form-label">Link</label>
+                    <input type="url" id="linkUrl" class="form-input" placeholder="https://..." required autocomplete="off">
                 </div>
-            </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <div class="custom-select-wrapper">
+                        <input type="hidden" id="linkCategory" value="">
+                        <button type="button" class="custom-select-trigger" id="categoryTrigger">
+                            <span id="categoryText">Select Category</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M6 9l6 6 6-6"/>
+                            </svg>
+                        </button>
+                        <div class="custom-options" id="categoryOptions">
+                            <div class="custom-option" data-value="Sports">Sports</div>
+                            <div class="custom-option" data-value="Entertainment">Entertainment</div>
+                            <div class="custom-option" data-value="Business">Business</div>
+                            <div class="custom-option" data-value="Technology">Technology</div>
+                            <div class="custom-option" data-value="Education">Education</div>
+                            <div class="custom-option" data-value="Other">Other</div>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" id="addBtn" class="btn btn-primary btn-full">
+                    Curate
+                </button>
+            </form>
         </div>
     </div>
 
@@ -489,7 +474,7 @@ function getStylesCSS() {
     --radius-sm: 8px;
     
     --sidebar-width-left: clamp(180px, 14vw, 216px);
-    --sidebar-width-right: clamp(240px, 18vw, 280px);
+    --sidebar-width-right: clamp(320px, 26vw, 400px);
 }
 
 * {
@@ -701,9 +686,16 @@ body {
 }
 
 /* Search */
+.search-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
 .search-container {
     position: relative;
-    margin-bottom: 16px;
+    flex: 1;
 }
 
 .search-input {
@@ -902,22 +894,279 @@ body {
 .icon-btn:hover { background: #F3F4F6; color: var(--text-primary); }
 
 /* Right Sidebar */
-.sidebar-right .sidebar-card {
-    background: #FAFAFA;
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid var(--border-light);
+.sidebar-right {
+    align-self: start;
+    position: sticky;
+    top: 12px;
 }
 
-.sidebar-title-small {
+/* Right Sidebar — Recommended Reading */
+.recommended-sidebar {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 130px);
+    overflow: hidden;
+    padding: 16px 0 16px 16px;
+    background: #FEFEFE;
+    border: 1px solid #E8E8E8;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.recommended-sidebar-header {
     font-size: 16px;
     font-weight: 700;
     font-family: var(--font-sans);
     color: var(--text-primary);
+    margin-bottom: 12px;
+    padding-right: 16px;
+    flex-shrink: 0;
+}
+
+.recommended-sidebar-filters {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 12px;
+    padding-right: 16px;
+    flex-shrink: 0;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.recommended-sidebar-filters::-webkit-scrollbar {
+    display: none;
+}
+
+.recommended-sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 8px;
+}
+
+.recommended-sidebar-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.recommended-sidebar-list::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 8px 0;
+}
+
+.recommended-sidebar-list::-webkit-scrollbar-thumb {
+    background: #D1D5DB;
+    border-radius: 10px;
+    border: 2px solid #FEFEFE;
+}
+
+.recommended-sidebar-list::-webkit-scrollbar-thumb:hover {
+    background: #9CA3AF;
+}
+
+.recommended-sidebar-article {
+    background: #FAFAFA;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.recommended-sidebar-article:hover {
+    border-color: #D1D5DB;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.recommended-sidebar-article .recommended-article-source {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
+    gap: 6px;
+}
+
+.recommended-sidebar-article .recommended-article-source-badge {
+    padding: 2px 6px;
+    background: #FFF7ED;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--accent-orange);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.recommended-sidebar-article .recommended-article-date {
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.recommended-sidebar-article .recommended-article-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.recommended-sidebar-article .recommended-article-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2px;
+    padding-top: 6px;
+    border-top: 1px solid #F3F4F6;
+}
+
+.recommended-sidebar-article .recommended-article-domain {
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+
+.recommended-sidebar-article .recommended-save-btn {
+    padding: 4px 10px;
+    background: var(--accent-orange);
+    border: none;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.recommended-sidebar-article .recommended-save-btn:hover {
+    background: var(--accent-orange-hover);
+}
+
+.recommended-sidebar-article .recommended-save-btn.saved {
+    background: #D1FAE5;
+    color: #059669;
+}
+
+/* Desktop Add Link FAB */
+.add-link-fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    color: white;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(210, 98, 42, 0.3);
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.add-link-fab svg {
+    width: 17px;
+    height: 17px;
+}
+
+.add-link-fab:hover {
+    background: var(--accent-orange-hover);
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(210, 98, 42, 0.4);
+}
+
+/* Desktop Add Link Modal */
+.add-link-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.add-link-modal.hidden {
+    display: none;
+}
+
+.add-link-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+}
+
+.add-link-modal-content {
+    position: relative;
+    width: 420px;
+    max-width: 90vw;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.add-link-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.add-link-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+}
+
+.add-link-modal-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #F3F4F6;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.add-link-modal-close:hover {
+    background: #E5E7EB;
+    color: var(--text-primary);
+}
+
+@keyframes slideUpModal {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .add-link-form {
@@ -1131,178 +1380,19 @@ body {
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* Recommended Reading Section */
-.recommended-card {
-    margin-top: 16px;
-    background: #FAFAFA;
-    border: 1px solid var(--border-light);
-}
-
-.recommended-section {
-    text-align: center;
-    padding: 4px 0;
-}
-
-.recommended-sidebar-title {
-    margin-bottom: 4px !important;
-}
-
-.recommended-desc {
-    font-size: 11px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-    line-height: 1.4;
-}
-
-.btn-recommended {
-    width: 100%;
-    background: var(--accent-orange);
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-weight: 500;
-    font-size: 13px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: all 0.2s ease;
-}
-
-.btn-recommended:hover {
-    background: var(--accent-orange-hover);
-}
-
-.btn-recommended:focus {
-    outline: none;
-}
-
-.btn-recommended svg {
-    transition: transform 0.2s ease;
-}
-
-.btn-recommended:hover svg {
-    transform: translateX(4px);
-}
-
-/* Recommended Modal Portal */
-.recommended-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.3s ease;
-}
-
-.recommended-modal.hidden {
-    display: none;
-}
-
-.recommended-modal-backdrop {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-}
-
-.recommended-modal-content {
-    position: relative;
-    width: 85%;
-    height: 85%;
-    background: #fff;
-    border-radius: 24px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes slideUpModal {
-    from { 
-        opacity: 0;
-        transform: translateY(30px) scale(0.98);
-    }
-    to { 
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.recommended-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 28px;
-    border-bottom: 1px solid #E5E7EB;
-    background: #FAFAFA;
-}
-
-.recommended-modal-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.recommended-modal-subtitle {
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin: 2px 0 0;
-}
-
-.recommended-modal-close {
-    width: 40px;
-    height: 40px;
-    border: none;
-    background: #F3F4F6;
-    border-radius: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    color: var(--text-secondary);
-}
-
-.recommended-modal-close:hover {
-    background: #E5E7EB;
-    color: var(--text-primary);
-}
-
-.recommended-modal-filters {
-    display: flex;
-    gap: 8px;
-    padding: 16px 32px;
-    border-bottom: 1px solid #F3F4F6;
-    background: #fff;
-}
-
+/* Sidebar Recommended Filter Pills */
 .recommended-filter {
-    padding: 8px 16px;
+    padding: 6px 12px;
     border: 1px solid #E5E7EB;
     background: #fff;
     border-radius: 20px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .recommended-filter:hover {
@@ -1316,140 +1406,32 @@ body {
     color: white;
 }
 
-.recommended-articles-grid {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 32px;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    align-content: start;
-}
-
-.recommended-articles-grid::-webkit-scrollbar {
-    width: 8px;
-}
-
-.recommended-articles-grid::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.recommended-articles-grid::-webkit-scrollbar-thumb {
-    background: #D1D5DB;
-    border-radius: 10px;
-}
-
-/* Recommended Article Card */
-.recommended-article {
-    background: #fff;
-    border: 1px solid #E5E7EB;
-    border-radius: 12px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-    min-height: 200px;
-    height: 200px;
-}
-
-.recommended-article:hover {
-    border-color: #D1D5DB;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
-    transform: translateY(-2px);
-}
-
-.recommended-article-source {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.recommended-article-source-badge {
-    padding: 3px 8px;
-    background: #FFF7ED;
-    border-radius: 5px;
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--accent-orange);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-
-.recommended-article-date {
-    font-size: 11px;
-    color: var(--text-tertiary);
-}
-
-.recommended-article-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.35;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.recommended-article-desc {
-    font-size: 12px;
-    color: var(--text-secondary);
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.recommended-article-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: auto;
-    padding-top: 8px;
-    border-top: 1px solid #F3F4F6;
-}
-
-.recommended-article-domain {
-    font-size: 11px;
-    color: var(--text-tertiary);
-}
-
-.recommended-save-btn {
-    padding: 6px 12px;
-    background: var(--accent-orange);
-    border: none;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 500;
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    transition: all 0.2s;
-}
-
-.recommended-save-btn:hover {
-    background: var(--accent-orange-hover);
-}
-
-.recommended-save-btn.saved {
-    background: #D1FAE5;
-    color: #059669;
-}
-
-/* Loading State */
-.recommended-loading {
-    grid-column: 1 / -1;
+/* Sidebar Recommended Empty */
+.recommended-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 60px 0;
+    padding: 40px 0;
     color: var(--text-secondary);
+    text-align: center;
+    font-size: 12px;
+}
+
+.recommended-empty-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+/* Loading State */
+.recommended-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+    color: var(--text-secondary);
+    font-size: 12px;
 }
 
 .loading-spinner {
@@ -1655,7 +1637,7 @@ body {
 /* Small laptops */
 @media (max-width: 1200px) {
     .main-content {
-        grid-template-columns: 200px 1fr 260px;
+        grid-template-columns: 200px 1fr 340px;
         gap: 24px;
     }
 }
@@ -1702,9 +1684,8 @@ body {
         overflow-y: visible;
     }
 
-    .recommended-modal-content {
-        width: 95%;
-        height: 90%;
+    .add-link-fab {
+        display: none;
     }
 }
 
@@ -1727,22 +1708,6 @@ body {
     .link-card {
         padding: 16px;
         min-height: 140px;
-    }
-
-    .recommended-modal-content {
-        width: 100%;
-        height: 100%;
-        border-radius: 0;
-    }
-
-    .recommended-modal-filters {
-        padding: 12px 16px;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
-    .recommended-articles-grid {
-        padding: 16px;
     }
 
     .status-message {
@@ -1775,7 +1740,7 @@ body {
         margin-bottom: 16px;
     }
 
-    .search-container {
+    .search-row {
         margin-bottom: 20px;
     }
 
@@ -2065,7 +2030,7 @@ class LinksApp {
         this.showMainAppSync();
         await this.loadLinks();
         
-        // Preload recommended articles in background (reduces latency when opening modal)
+        // Preload recommended articles in background and populate sidebar
         this.preloadRecommendedArticles();
     }
 
@@ -2075,6 +2040,7 @@ class LinksApp {
             const cached = JSON.parse(localStorage.getItem('recArticlesCache'));
             if (cached && cached.ts && (Date.now() - cached.ts < 15 * 60 * 1000) && cached.articles && cached.articles.length > 0) {
                 this.recommendedArticles = cached.articles;
+                this.renderSidebarRecommended();
                 return;
             }
         } catch (e) {}
@@ -2223,38 +2189,31 @@ class LinksApp {
             linkUrlInput.addEventListener('change', handleUrlUpdate); // Fallback for manual entry
         }
 
-        // Recommended Reading Button
-        const openRecommendedBtn = document.getElementById('openRecommendedBtn');
-        if (openRecommendedBtn) {
-            openRecommendedBtn.addEventListener('click', () => {
-                this._s('click_recommended_reading');
-                this.openRecommendedPortal();
+        // Sidebar Recommended Reading Filter Buttons
+        const sidebarFilters = document.getElementById('sidebarFilters');
+        if (sidebarFilters) {
+            sidebarFilters.addEventListener('click', (e) => {
+                if (e.target.classList.contains('recommended-filter')) {
+                    sidebarFilters.querySelectorAll('.recommended-filter').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    this.filterSidebarRecommended(e.target.dataset.category);
+                }
             });
         }
-
-        // Recommended Reading Filter Buttons
-        const filterButtons = document.querySelectorAll('.recommended-filter');
-        filterButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                filterButtons.forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.filterRecommendedArticles(e.target.dataset.source);
-            });
-        });
 
         // Close modals/drawers on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('recommendedModal');
-                if (modal && !modal.classList.contains('hidden')) {
-                    this.closeRecommendedPortal();
+                const addLinkModalEl = document.getElementById('addLinkModal');
+                if (addLinkModalEl && !addLinkModalEl.classList.contains('hidden')) {
+                    this.closeAddLinkModal();
                 }
                 const sidebar = document.querySelector('.sidebar-left');
                 if (sidebar && sidebar.classList.contains('drawer-open')) {
                     this.toggleDrawer();
                 }
-                const addLinkModal = document.getElementById('mobileAddLinkModal');
-                if (addLinkModal && addLinkModal.classList.contains('active')) {
+                const mobileAddLinkModal = document.getElementById('mobileAddLinkModal');
+                if (mobileAddLinkModal && mobileAddLinkModal.classList.contains('active')) {
                     this.toggleMobileAddLink();
                 }
             }
@@ -2472,6 +2431,7 @@ class LinksApp {
         }
 
         this.clearAddLinkForm();
+        this.closeAddLinkModal();
         try {
             await this.apiRequest('/links', {
                 method: 'POST',
@@ -2732,31 +2692,76 @@ switchTab(tab) {
 }
 
 // ==========================================
-// Recommended Reading Portal
+// Add Link Modal (Desktop)
 // ==========================================
 
-openRecommendedPortal() {
-    const modal = document.getElementById('recommendedModal');
+openAddLinkModal() {
+    const modal = document.getElementById('addLinkModal');
     if (modal) {
         modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden'; // Prevent background scroll
-        
-        // Use cached articles if available, otherwise fetch
-        if (this.recommendedArticles && this.recommendedArticles.length > 0) {
-            this.renderRecommendedArticles();
-            // Optionally refresh in background if it's been a while
-        } else {
-            this.loadRecommendedArticles();
-        }
+        document.body.style.overflow = 'hidden';
+        const urlInput = modal.querySelector('#linkUrl');
+        if (urlInput) urlInput.focus();
     }
 }
 
-closeRecommendedPortal() {
-    const modal = document.getElementById('recommendedModal');
+closeAddLinkModal() {
+    const modal = document.getElementById('addLinkModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.style.overflow = ''; // Restore scroll
+        document.body.style.overflow = '';
     }
+}
+
+// ==========================================
+// Sidebar Recommended Reading
+// ==========================================
+
+renderSidebarRecommended() {
+    const container = document.getElementById('recommendedSidebarArticles');
+    if (!container) return;
+
+    let articlesToShow = this.recommendedArticles || [];
+
+    if (this.currentRecommendedFilter && this.currentRecommendedFilter !== 'all') {
+        articlesToShow = articlesToShow.filter(
+            a => a.category === this.currentRecommendedFilter
+        );
+    }
+
+    if (articlesToShow.length === 0) {
+        container.innerHTML = \`
+            <div class="recommended-empty">
+                <div class="recommended-empty-icon">📭</div>
+                <p>No articles found. Try a different filter or check back later.</p>
+            </div>
+        \`;
+        return;
+    }
+
+    container.innerHTML = articlesToShow.map(article => {
+        const timeAgo = this.getTimeAgo(article.pubDate);
+        return \`
+            <article class="recommended-sidebar-article" onclick="window.open('\${article.url}', '_blank')">
+                <div class="recommended-article-source">
+                    <span class="recommended-article-source-badge">\${article.source}</span>
+                    <span class="recommended-article-date">\${timeAgo}</span>
+                </div>
+                <h3 class="recommended-article-title">\${this.escapeHtml(article.title)}</h3>
+                <div class="recommended-article-footer">
+                    <span class="recommended-article-domain">\${article.domain}</span>
+                    <button class="recommended-save-btn" onclick="event.stopPropagation(); window.app.saveRecommendedArticle('\${this.escapeHtml(article.url)}', '\${this.escapeHtml(article.title)}', '\${article.category}', this)">
+                        Curate
+                    </button>
+                </div>
+            </article>
+        \`;
+    }).join('');
+}
+
+filterSidebarRecommended(category) {
+    this.currentRecommendedFilter = category;
+    this.renderSidebarRecommended();
 }
 
 async loadRecommendedArticles(silent = false) {
@@ -2766,15 +2771,15 @@ async loadRecommendedArticles(silent = false) {
     }
 
     this.currentRecommendedFilter = 'all';
-    
-    const container = document.getElementById('recommendedArticles');
-    
+
+    const container = document.getElementById('recommendedSidebarArticles');
+
     // Only show loading UI if not silent and container exists
     if (!silent && container) {
         container.innerHTML = \`
             <div class="recommended-loading">
                 <div class="loading-spinner"></div>
-                <p>Loading trending articles...</p>
+                <p>Loading articles...</p>
             </div>
         \`;
     }
@@ -2974,9 +2979,7 @@ async loadRecommendedArticles(silent = false) {
             localStorage.setItem('recArticlesCache', JSON.stringify({ ts: Date.now(), articles: this.recommendedArticles }));
         } catch (e) {}
 
-        if (container) {
-            this.renderRecommendedArticles();
-        }
+        this.renderSidebarRecommended();
     } catch (err) {
         console.error('Failed to load recommended articles:', err);
     }
@@ -3003,55 +3006,6 @@ stripHtml(html) {
         div.textContent = str;
         return div.innerHTML;
     }
-
-filterRecommendedArticles(category) {
-    this.currentRecommendedFilter = category;
-    this.renderRecommendedArticles();
-}
-
-renderRecommendedArticles() {
-    const container = document.getElementById('recommendedArticles');
-    if (!container) return;
-
-    let articlesToShow = this.recommendedArticles;
-
-    // Apply filter
-    if (this.currentRecommendedFilter !== 'all') {
-        articlesToShow = this.recommendedArticles.filter(
-            a => a.category === this.currentRecommendedFilter
-        );
-    }
-
-    if (articlesToShow.length === 0) {
-        container.innerHTML = \`
-            <div class="recommended-empty">
-                <div class="recommended-empty-icon">📭</div>
-                <p>No articles found. Try a different filter or check back later.</p>
-            </div>
-        \`;
-        return;
-    }
-
-    container.innerHTML = articlesToShow.map(article => {
-        const timeAgo = this.getTimeAgo(article.pubDate);
-        return \`
-            <article class="recommended-article" onclick="window.open('\${article.url}', '_blank')">
-                <div class="recommended-article-source">
-                    <span class="recommended-article-source-badge">\${article.source}</span>
-                    <span class="recommended-article-date">\${timeAgo}</span>
-                </div>
-                <h3 class="recommended-article-title">\${this.escapeHtml(article.title)}</h3>
-                <p class="recommended-article-desc">\${this.escapeHtml(article.description)}</p>
-                <div class="recommended-article-footer">
-                    <span class="recommended-article-domain">\${article.domain}</span>
-                    <button class="recommended-save-btn" onclick="event.stopPropagation(); window.app.saveRecommendedArticle('\${this.escapeHtml(article.url)}', '\${this.escapeHtml(article.title)}', '\${article.category}', this)">
-                        Curate
-                    </button>
-                </div>
-            </article>
-        \`;
-    }).join('');
-}
 
 getTimeAgo(date) {
     const now = new Date();
