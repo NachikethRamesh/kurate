@@ -18,6 +18,9 @@ binding = "DB"
 database_name = "daves-links-db"
 database_id = "d10d8b73-a101-4a15-8584-662ed7091d5e"
 
+[vars]
+NODE_ENV = "production"
+
 [observability]
 [observability.logs]
 enabled = false
