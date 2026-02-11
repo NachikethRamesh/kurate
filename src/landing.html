@@ -190,6 +190,12 @@
                                     placeholder="Enter your username" required>
                             </div>
                             <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Current Password</label>
+                                <input type="password" id="currentPassword"
+                                    class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                    placeholder="Enter current password" required>
+                            </div>
+                            <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">New Password</label>
                                 <input type="password" id="newPassword"
                                     class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
@@ -344,6 +350,7 @@
         async function handleResetSubmit(e) {
             e.preventDefault();
             const username = document.getElementById('resetUsername').value;
+            const currentPassword = document.getElementById('currentPassword').value;
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
             const errorDiv = document.getElementById('resetError');
@@ -351,6 +358,12 @@
 
             errorDiv.classList.add('hidden');
             successDiv.classList.add('hidden');
+
+            if (!currentPassword) {
+                errorDiv.textContent = "Current password is required";
+                errorDiv.classList.remove('hidden');
+                return;
+            }
 
             if (newPassword !== confirmPassword) {
                 errorDiv.textContent = "Passwords don't match";
@@ -362,7 +375,7 @@
                 const response = await fetch('/api/auth/reset-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, newPassword })
+                    body: JSON.stringify({ username, currentPassword, newPassword })
                 });
 
                 const data = await response.json();

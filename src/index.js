@@ -2097,10 +2097,11 @@ class LinksApp {
     async handlePasswordReset(event) {
         event.preventDefault();
         const username = document.getElementById('resetUsername').value;
+        const currentPassword = document.getElementById('currentPassword').value;
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
-        if (!username || !newPassword || !confirmPassword) {
+        if (!username || !currentPassword || !newPassword || !confirmPassword) {
             this.showStatus('Please fill in all fields', 'error');
             return;
         }
@@ -2118,7 +2119,7 @@ class LinksApp {
         try {
             const result = await this.apiRequest('/auth/reset-password', {
                 method: 'POST',
-                body: JSON.stringify({ username, newPassword })
+                body: JSON.stringify({ username, currentPassword, newPassword })
             });
 
             if (result && result.success) {
@@ -3387,6 +3388,12 @@ function getLandingHTML() {
                                                                                                                                             placeholder="Enter your username" required>
                                                                                                                                     </div>
                                                                                                                                     <div>
+                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Current Password</label>
+                                                                                                                                        <input type="password" id="currentPassword"
+                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                                                                                                                            placeholder="Enter current password" required>
+                                                                                                                                    </div>
+                                                                                                                                    <div>
                                                                                                                                         <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">New Password</label>
                                                                                                                                         <input type="password" id="newPassword"
                                                                                                                                             class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
@@ -3660,6 +3667,7 @@ function getLandingHTML() {
                                                                                                                 async function handleResetSubmit(e) {
                                                                                                                     e.preventDefault();
                                                                                                                 const username = document.getElementById('resetUsername').value;
+                                                                                                                const currentPassword = document.getElementById('currentPassword').value;
                                                                                                                 const newPassword = document.getElementById('newPassword').value;
                                                                                                                 const confirmPassword = document.getElementById('confirmPassword').value;
                                                                                                                 const errorDiv = document.getElementById('resetError');
@@ -3667,6 +3675,12 @@ function getLandingHTML() {
 
                                                                                                                 errorDiv.classList.add('hidden');
                                                                                                                 successDiv.classList.add('hidden');
+
+                                                                                                                if (!currentPassword) {
+                                                                                                                    errorDiv.textContent = "Current password is required";
+                                                                                                                errorDiv.classList.remove('hidden');
+                                                                                                                return;
+            }
 
                                                                                                                 if (newPassword !== confirmPassword) {
                                                                                                                     errorDiv.textContent = "Passwords don't match";
@@ -3678,7 +3692,7 @@ function getLandingHTML() {
                 const response = await fetch('/api/auth/reset-password', {
                                                                                                                     method: 'POST',
                                                                                                                 headers: {'Content-Type': 'application/json' },
-                                                                                                                body: JSON.stringify({username, newPassword})
+                                                                                                                body: JSON.stringify({username, currentPassword, newPassword})
                 });
 
                                                                                                                 const data = await response.json();
@@ -3991,6 +4005,10 @@ function getMobileLandingHTML() {
                     <input type="text" id="resetUsername" class="m-input" placeholder="Enter your username" required autocomplete="off">
                 </div>
                 <div class="m-form-group">
+                    <label class="m-label">Current Password</label>
+                    <input type="password" id="resetCurrentPw" class="m-input" placeholder="Enter current password" required>
+                </div>
+                <div class="m-form-group">
                     <label class="m-label">New Password</label>
                     <input type="password" id="resetNewPw" class="m-input" placeholder="Min 6 characters" required>
                 </div>
@@ -4055,12 +4073,18 @@ function getMobileLandingHTML() {
     async function handleReset(e) {
         e.preventDefault();
         const username = document.getElementById('resetUsername').value;
+        const currentPassword = document.getElementById('resetCurrentPw').value;
         const newPassword = document.getElementById('resetNewPw').value;
         const confirmPassword = document.getElementById('resetConfirmPw').value;
         const errDiv = document.getElementById('resetError');
         const successDiv = document.getElementById('resetSuccess');
         errDiv.className = 'm-error';
         successDiv.className = 'm-success';
+        if (!currentPassword) {
+            errDiv.textContent = 'Current password is required';
+            errDiv.className = 'm-error visible';
+            return;
+        }
         if (newPassword !== confirmPassword) {
             errDiv.textContent = "Passwords don't match";
             errDiv.className = 'm-error visible';
@@ -4070,7 +4094,7 @@ function getMobileLandingHTML() {
             const res = await fetch('/api/auth/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, newPassword })
+                body: JSON.stringify({ username, currentPassword, newPassword })
             });
             const data = await res.json();
             if (data.success) {

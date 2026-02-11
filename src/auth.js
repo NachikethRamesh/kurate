@@ -134,21 +134,23 @@ export async function handlePasswordReset(request, env) {
   if (request.method === 'POST') {
     try {
       const requestData = await request.json();
-      const { username, newPassword } = requestData;
+      const { username, currentPassword, newPassword } = requestData;
 
-      if (!username || !newPassword) {
-        return createErrorResponse('Username and new password required', 400);
+      if (!username || !currentPassword || !newPassword) {
+        return createErrorResponse('Username, current password, and new password are required', 400);
       }
 
       if (newPassword.length < 6) {
         return createErrorResponse('Password must be at least 6 characters long', 400);
       }
 
-      // Check if user exists
-      const user = await getUserByUsername(env.DB, username);
-      if (!user) {
-        return createErrorResponse('User not found', 404);
+      // Verify current password first
+      const authResult = await verifyUserPassword(env.DB, username, currentPassword);
+      if (!authResult.success) {
+        return createErrorResponse(authResult.error === 'User not found' ? 'User not found' : 'Current password is incorrect', authResult.error === 'User not found' ? 404 : 401);
       }
+
+      const user = authResult.user;
 
       // Update password
       const result = await updateUserPassword(env.DB, username, newPassword);
