@@ -3,7 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as SecureStore from 'expo-secure-store';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, AppState } from 'react-native';
+import { View, ActivityIndicator, AppState, Platform } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
 import { api } from './src/api';
 import { rssService } from './src/rss';
 
@@ -16,12 +18,22 @@ import { COLORS } from './src/constants';
 
 const Stack = createNativeStackNavigator();
 
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+    }),
+});
+
 export default function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         checkAuth();
+        registerForPushNotificationsAsync();
+        scheduleDailyReminder();
 
         // Check auth and refresh RSS whenever app comes to foreground
         const subscription = AppState.addEventListener('change', nextAppState => {
@@ -34,6 +46,47 @@ export default function App() {
             subscription.remove();
         };
     }, []);
+
+    const registerForPushNotificationsAsync = async () => {
+        if (!Device.isDevice) return;
+
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+        if (finalStatus !== 'granted') {
+            console.log('Failed to get push token for push notification!');
+            return;
+        }
+
+        if (Platform.OS === 'android') {
+            Notifications.setNotificationChannelAsync('default', {
+                name: 'default',
+                importance: Notifications.AndroidImportance.MAX,
+                vibrationPattern: [0, 250, 250, 250],
+                lightColor: '#FF231F7C',
+            });
+        }
+    };
+
+    const scheduleDailyReminder = async () => {
+        // Cancel first to avoid duplicates
+        await Notifications.cancelAllScheduledNotificationsAsync();
+
+        await Notifications.scheduleNotificationAsync({
+            content: {
+                title: "kurate",
+                body: "Here's your top pick of the day. Read more on kurate",
+            },
+            trigger: {
+                hour: 9,
+                minute: 5,
+                repeats: true,
+            },
+        });
+    };
 
     const checkAuth = async () => {
         try {
