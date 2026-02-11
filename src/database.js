@@ -168,6 +168,41 @@ export async function verifyUserPassword(db, username, password, salt) {
  * @param {string} salt - Password salt from environment
  * @returns {Promise<{success: boolean, changes?: number, error?: string}>}
  */
+export async function updateUsername(db, userId, newUsername) {
+  try {
+    const result = await db.prepare(`
+      UPDATE users
+      SET username = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(newUsername, userId).run();
+
+    return {
+      success: result.meta.changes > 0,
+      changes: result.meta.changes
+    };
+  } catch (error) {
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return { success: false, error: 'Username already exists' };
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteUser(db, userId) {
+  try {
+    await db.prepare('DELETE FROM links WHERE user_id = ?').bind(userId).run();
+    await db.prepare('UPDATE metrics SET user_id = NULL WHERE user_id = ?').bind(userId).run();
+    const result = await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+
+    return {
+      success: result.meta.changes > 0,
+      changes: result.meta.changes
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 export async function updateUserPassword(db, username, newPassword, salt) {
   try {
     const newPasswordHash = await generatePasswordHash(newPassword, salt);

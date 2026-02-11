@@ -1,8 +1,10 @@
-import { 
-  createUser, 
-  getUserByUsername, 
-  verifyUserPassword, 
-  updateUserPassword 
+import {
+  createUser,
+  getUserByUsername,
+  verifyUserPassword,
+  updateUserPassword,
+  updateUsername,
+  deleteUser
 } from './database.js';
 import { CORS_HEADERS, createResponse, createErrorResponse } from './constants.js';
 
@@ -203,6 +205,106 @@ export async function handlePasswordReset(request, env) {
 
     } catch (error) {
       return createErrorResponse('Failed to reset password', 500);
+    }
+  }
+
+  return createErrorResponse('Method not allowed', 405);
+}
+
+/**
+ * Handles POST /api/auth/update-username — updates username for authenticated user.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
+export async function handleUpdateUsername(request, env) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (request.method === 'POST') {
+    try {
+      const tokenData = validateToken(request.headers.get('Authorization'));
+      if (!tokenData) {
+        return createErrorResponse('Unauthorized', 401);
+      }
+
+      const { newUsername } = await request.json();
+
+      if (!newUsername || newUsername.length < 3) {
+        return createErrorResponse('Username must be at least 3 characters long', 400);
+      }
+
+      const result = await updateUsername(env.DB, tokenData.userId, newUsername);
+
+      if (!result.success) {
+        return createErrorResponse(result.error || 'Failed to update username', result.error === 'Username already exists' ? 409 : 500);
+      }
+
+      const newToken = generateToken({
+        username: newUsername,
+        id: tokenData.userId,
+        userHash: tokenData.userHash
+      });
+
+      return createResponse({
+        success: true,
+        message: 'Username updated successfully!',
+        user: { username: newUsername },
+        token: newToken
+      });
+
+    } catch (error) {
+      return createErrorResponse('Failed to update username', 500);
+    }
+  }
+
+  return createErrorResponse('Method not allowed', 405);
+}
+
+/**
+ * Handles POST /api/auth/delete-account — permanently deletes user and all their data.
+ * @param {Request} request
+ * @param {Object} env - Cloudflare Worker environment bindings
+ * @returns {Response}
+ */
+export async function handleDeleteAccount(request, env) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 200, headers: CORS_HEADERS });
+  }
+
+  if (request.method === 'POST') {
+    try {
+      const tokenData = validateToken(request.headers.get('Authorization'));
+      if (!tokenData) {
+        return createErrorResponse('Unauthorized', 401);
+      }
+
+      const { password } = await request.json();
+
+      if (!password) {
+        return createErrorResponse('Password is required to delete account', 400);
+      }
+
+      // Verify password before deletion
+      const authResult = await verifyUserPassword(env.DB, tokenData.username, password, env.PASSWORD_SALT);
+      if (!authResult.success) {
+        return createErrorResponse('Incorrect password', 401);
+      }
+
+      const result = await deleteUser(env.DB, tokenData.userId);
+
+      if (!result.success) {
+        return createErrorResponse('Failed to delete account', 500);
+      }
+
+      return createResponse({
+        success: true,
+        message: 'Account deleted successfully'
+      });
+
+    } catch (error) {
+      return createErrorResponse('Failed to delete account', 500);
     }
   }
 

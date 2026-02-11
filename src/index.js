@@ -5,7 +5,7 @@
  * Routes: API endpoints (/api/*), static assets (HTML/CSS/JS), and landing pages.
  * All HTML, CSS, and JS are generated inline by the get*() functions below.
  */
-import { handleAuthLogin, handleAuthRegister, handlePasswordReset, handleAuthLogout, validateToken } from './auth.js';
+import { handleAuthLogin, handleAuthRegister, handlePasswordReset, handleUpdateUsername, handleDeleteAccount, handleAuthLogout, validateToken } from './auth.js';
 import { handleLinks, handleMarkRead, handleToggleFavorite } from './links.js';
 import { checkDatabaseHealth, trackEvent } from './database.js';
 import { CORS_HEADERS, createResponse, createErrorResponse } from './constants.js';
@@ -67,6 +67,14 @@ export default {
 
         if (path === '/api/auth/reset-password') {
             return handlePasswordReset(request, env);
+        }
+
+        if (path === '/api/auth/update-username') {
+            return handleUpdateUsername(request, env);
+        }
+
+        if (path === '/api/auth/delete-account') {
+            return handleDeleteAccount(request, env);
         }
 
         if (path === '/api/auth/logout') {
@@ -375,6 +383,13 @@ function getIndexHTML() {
                     <span class="logo-text">kurate</span>
                 </a>
                 <div style="display:flex;align-items:center;gap:8px;">
+                    <button id="profileBtn" class="profile-btn" onclick="window.app.openProfileModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Profile
+                    </button>
                     <button id="logoutBtn" class="logout-btn">
                         Log out
                     </button>
@@ -629,6 +644,52 @@ function getIndexHTML() {
         </div>
     </div>
 
+    <!-- Profile Modal -->
+    <div id="profileModal" class="profile-modal hidden">
+        <div class="profile-modal-backdrop" onclick="window.app.closeProfileModal()"></div>
+        <div class="profile-modal-content">
+            <div class="profile-modal-header">
+                <h2 class="profile-modal-title">Profile Settings</h2>
+                <button class="profile-modal-close" onclick="window.app.closeProfileModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Update Username Section -->
+            <div class="profile-section">
+                <h3 class="profile-section-title">Username</h3>
+                <input type="text" id="profileUsername" class="profile-input" placeholder="New username" minlength="3" autocomplete="off">
+                <div class="profile-btn-row">
+                    <button id="updateUsernameBtn" class="profile-action-btn" onclick="window.app.handleUpdateUsername()">Save</button>
+                </div>
+            </div>
+
+            <!-- Reset Password Section -->
+            <div class="profile-section">
+                <h3 class="profile-section-title">Reset Password</h3>
+                <input type="password" id="profileCurrentPassword" class="profile-input" placeholder="Current password" autocomplete="off">
+                <input type="password" id="profileNewPassword" class="profile-input" placeholder="New password (min 6 chars)" minlength="6" autocomplete="off">
+                <input type="password" id="profileConfirmPassword" class="profile-input" placeholder="Confirm new password" minlength="6" autocomplete="off">
+                <div class="profile-btn-row">
+                    <button id="resetPasswordBtn" class="profile-action-btn" onclick="window.app.handleProfilePasswordReset()">Reset</button>
+                </div>
+            </div>
+
+            <!-- Delete Account Section -->
+            <div class="profile-section profile-danger-zone">
+                <h3 class="profile-section-title">Delete Account</h3>
+                <p class="profile-danger-text">Permanently delete your account and all your data. This action cannot be undone.</p>
+                <div class="profile-btn-row">
+                    <button id="deleteAccountBtn" class="profile-action-btn" onclick="window.app.handleDeleteAccount()">Delete</button>
+                </div>
+            </div>
+
+            <div id="profileStatusMessage" class="profile-status hidden"></div>
+        </div>
+    </div>
+
     <!-- Status/Alert Container -->
     <div id="statusMessage" class="status-message hidden"></div>
 
@@ -764,6 +825,199 @@ body {
 }
 
 .logout-icon { font-size: 12px; }
+
+/* Profile Button */
+.profile-btn {
+    background: transparent;
+    border: 1px solid var(--border-light);
+    padding: 8px 16px;
+    border-radius: 100px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.profile-btn:hover {
+    border-color: var(--text-primary);
+    color: var(--text-primary);
+}
+
+/* Profile Modal */
+.profile-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+
+.profile-modal.hidden {
+    display: none;
+}
+
+.profile-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+}
+
+.profile-modal-content {
+    position: relative;
+    width: 440px;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.profile-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.profile-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+}
+
+.profile-modal-close {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #F3F4F6;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.profile-modal-close:hover {
+    background: #E5E7EB;
+    color: var(--text-primary);
+}
+
+.profile-section {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.profile-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.profile-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.profile-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--text-primary);
+    background: #FAFAFA;
+    transition: border-color 0.2s;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+}
+
+.profile-input:focus {
+    outline: none;
+    border-color: var(--accent-orange);
+    background: #fff;
+}
+
+.profile-btn-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.profile-action-btn {
+    background: var(--accent-orange);
+    color: #fff;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.profile-action-btn:hover {
+    background: var(--accent-orange-hover);
+}
+
+.profile-danger-zone {
+    border-bottom: none;
+}
+
+.profile-danger-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.profile-status {
+    margin-top: 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font-sans);
+}
+
+.profile-status.hidden {
+    display: none;
+}
+
+.profile-status.success {
+    background: #ECFDF5;
+    color: #059669;
+}
+
+.profile-status.error {
+    background: #FEF2F2;
+    color: #DC2626;
+}
 
 /* Main Grid Layout */
 .main-content {
@@ -2276,6 +2530,11 @@ class LinksApp {
         this.setupEventListeners();
         this.showMainApp();
         this.loadLinks();
+
+        if (localStorage.getItem('reopenProfile')) {
+            localStorage.removeItem('reopenProfile');
+            setTimeout(() => this.openProfileModal(), 300);
+        }
     }
 
     setupRouting() {
@@ -3220,6 +3479,173 @@ closeAddLinkModal() {
     if (modal) {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
+    }
+}
+
+// ==========================================
+// Profile Modal
+// ==========================================
+
+openProfileModal() {
+    const modal = document.getElementById('profileModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        const usernameInput = document.getElementById('profileUsername');
+        if (usernameInput && this.currentUser) {
+            usernameInput.value = this.currentUser.username;
+        }
+        this.hideProfileStatus();
+    }
+}
+
+closeProfileModal() {
+    const modal = document.getElementById('profileModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        // Clear password fields
+        const fields = ['profileCurrentPassword', 'profileNewPassword', 'profileConfirmPassword'];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        this.hideProfileStatus();
+    }
+}
+
+showProfileStatus(message, type) {
+    const el = document.getElementById('profileStatusMessage');
+    if (el) {
+        el.textContent = message;
+        el.className = 'profile-status ' + type;
+    }
+}
+
+hideProfileStatus() {
+    const el = document.getElementById('profileStatusMessage');
+    if (el) {
+        el.className = 'profile-status hidden';
+    }
+}
+
+async handleUpdateUsername() {
+    const input = document.getElementById('profileUsername');
+    const newUsername = input ? input.value.trim() : '';
+
+    if (!newUsername || newUsername.length < 3) {
+        this.showProfileStatus('Username must be at least 3 characters.', 'error');
+        return;
+    }
+
+    if (this.currentUser && newUsername === this.currentUser.username) {
+        this.showProfileStatus('That is already your username.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('updateUsernameBtn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const result = await this.apiRequest('/auth/update-username', {
+            method: 'POST',
+            body: JSON.stringify({ newUsername })
+        });
+
+        if (result && result.success) {
+            localStorage.setItem('authToken', result.token);
+            localStorage.setItem('reopenProfile', '1');
+            window.location.reload();
+            return;
+        } else {
+            this.showProfileStatus((result && result.error) || 'Failed to update username.', 'error');
+        }
+    } catch (error) {
+        this.showProfileStatus('Failed to update username.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async handleProfilePasswordReset() {
+    const currentPassword = document.getElementById('profileCurrentPassword').value;
+    const newPassword = document.getElementById('profileNewPassword').value;
+    const confirmPassword = document.getElementById('profileConfirmPassword').value;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+        this.showProfileStatus('Please fill in all password fields.', 'error');
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        this.showProfileStatus('New passwords do not match.', 'error');
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        this.showProfileStatus('Password must be at least 6 characters.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('resetPasswordBtn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const result = await this.apiRequest('/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({
+                username: this.currentUser.username,
+                currentPassword,
+                newPassword
+            })
+        });
+
+        if (result && result.success) {
+            this.token = result.token;
+            localStorage.setItem('authToken', this.token);
+            document.getElementById('profileCurrentPassword').value = '';
+            document.getElementById('profileNewPassword').value = '';
+            document.getElementById('profileConfirmPassword').value = '';
+            this.showProfileStatus('Password updated!', 'success');
+        } else {
+            this.showProfileStatus((result && result.error) || 'Failed to reset password.', 'error');
+        }
+    } catch (error) {
+        this.showProfileStatus('Failed to reset password.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async handleDeleteAccount() {
+    const confirmed = confirm('Are you sure you want to delete your account? This will permanently delete all your data and cannot be undone.');
+    if (!confirmed) return;
+
+    const password = prompt('Please enter your password to confirm account deletion:');
+    if (!password) return;
+
+    const btn = document.getElementById('deleteAccountBtn');
+    if (btn) btn.disabled = true;
+
+    try {
+        const result = await this.apiRequest('/auth/delete-account', {
+            method: 'POST',
+            body: JSON.stringify({ password })
+        });
+
+        if (result && result.success) {
+            this.token = null;
+            this.currentUser = null;
+            this.links = [];
+            localStorage.removeItem('authToken');
+            window.location.replace('/');
+        } else {
+            this.showProfileStatus((result && result.error) || 'Failed to delete account.', 'error');
+        }
+    } catch (error) {
+        this.showProfileStatus('Failed to delete account.', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
     }
 }
 
@@ -4620,9 +5046,14 @@ function getMobileIndexHTML() {
                 <div class="m-logo-icon">K</div>
                 <span class="m-logo-text">kurate</span>
             </div>
-            <button id="logoutBtn" class="m-logout-btn">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            </button>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button id="profileBtn" class="m-logout-btn" onclick="window.app.openProfileModal()">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </button>
+                <button id="logoutBtn" class="m-logout-btn">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+            </div>
         </header>
 
         <!-- Title -->
@@ -4756,6 +5187,45 @@ function getMobileIndexHTML() {
                 <div class="m-spinner"></div>
                 <p>Fetching trending articles...</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="profile-modal hidden">
+        <div class="profile-modal-backdrop" onclick="window.app.closeProfileModal()"></div>
+        <div class="profile-modal-content">
+            <div class="profile-modal-header">
+                <h2 class="profile-modal-title">Profile Settings</h2>
+                <button class="profile-modal-close" onclick="window.app.closeProfileModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="profile-section">
+                <h3 class="profile-section-title">Username</h3>
+                <input type="text" id="profileUsername" class="profile-input" placeholder="New username" minlength="3" autocomplete="off">
+                <div class="profile-btn-row">
+                    <button id="updateUsernameBtn" class="profile-action-btn" onclick="window.app.handleUpdateUsername()">Save</button>
+                </div>
+            </div>
+            <div class="profile-section">
+                <h3 class="profile-section-title">Reset Password</h3>
+                <input type="password" id="profileCurrentPassword" class="profile-input" placeholder="Current password" autocomplete="off">
+                <input type="password" id="profileNewPassword" class="profile-input" placeholder="New password (min 6 chars)" minlength="6" autocomplete="off">
+                <input type="password" id="profileConfirmPassword" class="profile-input" placeholder="Confirm new password" minlength="6" autocomplete="off">
+                <div class="profile-btn-row">
+                    <button id="resetPasswordBtn" class="profile-action-btn" onclick="window.app.handleProfilePasswordReset()">Reset</button>
+                </div>
+            </div>
+            <div class="profile-section profile-danger-zone">
+                <h3 class="profile-section-title">Delete Account</h3>
+                <p class="profile-danger-text">Permanently delete your account and all your data. This action cannot be undone.</p>
+                <div class="profile-btn-row">
+                    <button id="deleteAccountBtn" class="profile-action-btn" onclick="window.app.handleDeleteAccount()">Delete</button>
+                </div>
+            </div>
+            <div id="profileStatusMessage" class="profile-status hidden"></div>
         </div>
     </div>
 
@@ -5405,6 +5875,126 @@ body {
     from { transform: translateY(20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
 }
+
+/* Profile Modal */
+.profile-modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+.profile-modal.hidden { display: none; }
+.profile-modal-backdrop {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+}
+.profile-modal-content {
+    position: relative;
+    width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+}
+.profile-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+.profile-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.profile-modal-close {
+    width: 32px; height: 32px;
+    border: none;
+    background: #F3F4F6;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+}
+.profile-section {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+}
+.profile-section:last-of-type {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+.profile-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+.profile-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--text-primary);
+    background: #FAFAFA;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+}
+.profile-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: #fff;
+}
+.profile-btn-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+.profile-action-btn {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.profile-danger-zone { border-bottom: none; }
+.profile-danger-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+.profile-status {
+    margin-top: 16px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+.profile-status.hidden { display: none; }
+.profile-status.success { background: #ECFDF5; color: #059669; }
+.profile-status.error { background: #FEF2F2; color: #DC2626; }
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 `;
 }
 
@@ -5452,6 +6042,11 @@ class LinksApp {
         this.showMainApp();
         this.loadLinks();
         this.preloadRecommendedArticles();
+
+        if (localStorage.getItem('reopenProfile')) {
+            localStorage.removeItem('reopenProfile');
+            setTimeout(() => this.openProfileModal(), 300);
+        }
     }
 
     preloadRecommendedArticles() {
@@ -5912,6 +6507,143 @@ class LinksApp {
         el.textContent = message;
         el.className = 'm-status ' + type;
         setTimeout(() => { el.className = 'm-status hidden'; }, 3000);
+    }
+
+    // Profile Modal
+    openProfileModal() {
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            const usernameInput = document.getElementById('profileUsername');
+            if (usernameInput && this.currentUser) usernameInput.value = this.currentUser.username;
+            this.hideProfileStatus();
+        }
+    }
+
+    closeProfileModal() {
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+            ['profileCurrentPassword', 'profileNewPassword', 'profileConfirmPassword'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            this.hideProfileStatus();
+        }
+    }
+
+    showProfileStatus(message, type) {
+        const el = document.getElementById('profileStatusMessage');
+        if (el) { el.textContent = message; el.className = 'profile-status ' + type; }
+    }
+
+    hideProfileStatus() {
+        const el = document.getElementById('profileStatusMessage');
+        if (el) el.className = 'profile-status hidden';
+    }
+
+    async handleUpdateUsername() {
+        const input = document.getElementById('profileUsername');
+        const newUsername = input ? input.value.trim() : '';
+        if (!newUsername || newUsername.length < 3) {
+            this.showProfileStatus('Username must be at least 3 characters.', 'error');
+            return;
+        }
+        if (this.currentUser && newUsername === this.currentUser.username) {
+            this.showProfileStatus('That is already your username.', 'error');
+            return;
+        }
+        const btn = document.getElementById('updateUsernameBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const result = await this.apiRequest('/auth/update-username', {
+                method: 'POST',
+                body: JSON.stringify({ newUsername })
+            });
+            if (result && result.success) {
+                localStorage.setItem('authToken', result.token);
+                localStorage.setItem('reopenProfile', '1');
+                window.location.reload();
+                return;
+            } else {
+                this.showProfileStatus((result && result.error) || 'Failed to update username.', 'error');
+            }
+        } catch (e) {
+            this.showProfileStatus('Failed to update username.', 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async handleProfilePasswordReset() {
+        const currentPassword = document.getElementById('profileCurrentPassword').value;
+        const newPassword = document.getElementById('profileNewPassword').value;
+        const confirmPassword = document.getElementById('profileConfirmPassword').value;
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            this.showProfileStatus('Please fill in all password fields.', 'error');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            this.showProfileStatus('New passwords do not match.', 'error');
+            return;
+        }
+        if (newPassword.length < 6) {
+            this.showProfileStatus('Password must be at least 6 characters.', 'error');
+            return;
+        }
+        const btn = document.getElementById('resetPasswordBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const result = await this.apiRequest('/auth/reset-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username: this.currentUser.username,
+                    currentPassword,
+                    newPassword
+                })
+            });
+            if (result && result.success) {
+                this.token = result.token;
+                localStorage.setItem('authToken', this.token);
+                document.getElementById('profileCurrentPassword').value = '';
+                document.getElementById('profileNewPassword').value = '';
+                document.getElementById('profileConfirmPassword').value = '';
+                this.showProfileStatus('Password updated!', 'success');
+            } else {
+                this.showProfileStatus((result && result.error) || 'Failed to reset password.', 'error');
+            }
+        } catch (e) {
+            this.showProfileStatus('Failed to reset password.', 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async handleDeleteAccount() {
+        const confirmed = confirm('Are you sure you want to delete your account? This will permanently delete all your data and cannot be undone.');
+        if (!confirmed) return;
+        const password = prompt('Please enter your password to confirm account deletion:');
+        if (!password) return;
+        const btn = document.getElementById('deleteAccountBtn');
+        if (btn) btn.disabled = true;
+        try {
+            const result = await this.apiRequest('/auth/delete-account', {
+                method: 'POST',
+                body: JSON.stringify({ password })
+            });
+            if (result && result.success) {
+                localStorage.removeItem('authToken');
+                window.location.replace('/');
+            } else {
+                this.showProfileStatus((result && result.error) || 'Failed to delete account.', 'error');
+            }
+        } catch (e) {
+            this.showProfileStatus('Failed to delete account.', 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
     }
 }
 
