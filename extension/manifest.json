@@ -10,6 +10,18 @@
     "host_permissions": [
         "https://kurate.net/*"
     ],
+    "content_scripts": [
+        {
+            "matches": [
+                "https://kurate.net/*",
+                "http://localhost:8787/*"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_start"
+        }
+    ],
     "action": {
         "default_popup": "popup.html",
         "default_icon": {

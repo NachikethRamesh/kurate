@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
+    email TEXT, -- Capture email during signup
     password_hash TEXT NOT NULL,
     user_hash TEXT NOT NULL, -- For backward compatibility with existing system
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -58,3 +59,29 @@ CREATE TABLE IF NOT EXISTS metrics (
 );
 CREATE INDEX IF NOT EXISTS idx_metrics_user_id ON metrics(user_id);
 CREATE INDEX IF NOT EXISTS idx_metrics_event_type ON metrics(event_type);
+
+-- Reminders table for engagement engine
+CREATE TABLE IF NOT EXISTS reminders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    description TEXT,
+    source TEXT,
+    category TEXT,
+    is_shown INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_reminders_user_id ON reminders(user_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_is_shown ON reminders(is_shown);
+-- Custom Categories table
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    UNIQUE(user_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);

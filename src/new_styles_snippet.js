@@ -18,8 +18,8 @@ function getStylesCSS() {
     --radius-md: 12px;
     --radius-sm: 8px;
     
-    --sidebar-width-left: clamp(180px, 14vw, 240px);
-    --sidebar-width-right: clamp(320px, 26vw, 400px);
+    --sidebar-width-left: 240px;
+    --sidebar-width-right: 320px;
 }
 
 * {
@@ -46,13 +46,13 @@ body {
 .container {
     max-width: 1440px;
     margin: 0 auto;
-    padding: 0 clamp(16px, 3vw, 40px);
+    padding: 0 40px;
     width: 100%;
     flex: 1;
 }
 
 .app-header {
-    padding: 24px clamp(16px, 3vw, 40px);
+    padding: 24px 40px;
     max-width: 1440px;
     margin: 0 auto;
     width: 100%;
@@ -119,7 +119,7 @@ body {
 .main-content {
     display: grid;
     grid-template-columns: var(--sidebar-width-left) 1fr var(--sidebar-width-right);
-    gap: clamp(24px, 3vw, 64px);
+    gap: 64px;
     padding-top: 24px;
     padding-bottom: 64px;
 }
@@ -188,16 +188,9 @@ body {
 }
 
 /* Search */
-.search-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-}
-
 .search-container {
     position: relative;
-    flex: 1;
+    margin-bottom: 32px;
 }
 
 .search-input {
@@ -356,184 +349,24 @@ body {
 
 .icon-btn:hover { background: #F3F4F6; color: var(--text-primary); }
 
-/* Right Sidebar — Recommended Reading */
-.recommended-sidebar {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 130px);
-    overflow: hidden;
-    padding: 16px 0 16px 16px;
-    background: #FEFEFE;
-    border: 1px solid #E8E8E8;
-    border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+/* Right Sidebar */
+.sidebar-right .sidebar-card {
+    background: #fff;
+    border-radius: var(--radius-lg);
+    padding: 0; 
 }
 
-.recommended-sidebar-header {
+.sidebar-title-small {
     font-size: 16px;
     font-weight: 700;
-    font-family: var(--font-sans);
-    color: var(--text-primary);
-    margin-bottom: 12px;
-    padding-right: 16px;
-    flex-shrink: 0;
-}
-
-.recommended-sidebar-filters {
-    display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 12px;
-    padding-right: 16px;
-    flex-shrink: 0;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-.recommended-sidebar-filters::-webkit-scrollbar {
-    display: none;
-}
-
-.recommended-sidebar-list {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-right: 8px;
-}
-
-.recommended-sidebar-list::-webkit-scrollbar {
-    width: 8px;
-}
-
-.recommended-sidebar-list::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.recommended-sidebar-list::-webkit-scrollbar-thumb {
-    background: #D1D5DB;
-    border-radius: 10px;
-}
-
-.recommended-sidebar-article {
-    background: #FAFAFA;
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.recommended-sidebar-article:hover {
-    border-color: #D1D5DB;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-/* Desktop Add Link FAB */
-.add-link-fab {
+    color: var(--accent-orange);
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    border-radius: 50%;
-    background: var(--accent-orange);
-    color: white;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(210, 98, 42, 0.3);
-    transition: all 0.2s;
-    flex-shrink: 0;
+    gap: 8px;
+    margin-bottom: 24px;
 }
 
-.add-link-fab svg {
-    width: 17px;
-    height: 17px;
-}
-
-.add-link-fab:hover {
-    background: var(--accent-orange-hover);
-    transform: scale(1.08);
-    box-shadow: 0 4px 12px rgba(210, 98, 42, 0.4);
-}
-
-/* Desktop Add Link Modal */
-.add-link-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.2s ease;
-}
-
-.add-link-modal.hidden {
-    display: none;
-}
-
-.add-link-modal-backdrop {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-}
-
-.add-link-modal-content {
-    position: relative;
-    width: 420px;
-    max-width: 90vw;
-    background: #fff;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.add-link-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-
-.add-link-modal-title {
-    font-size: 18px;
-    font-weight: 700;
-    font-family: var(--font-sans);
-    color: var(--text-primary);
-}
-
-.add-link-modal-close {
-    width: 32px;
-    height: 32px;
-    border: none;
-    background: #F3F4F6;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    transition: all 0.2s;
-}
-
-.add-link-modal-close:hover {
-    background: #E5E7EB;
-    color: var(--text-primary);
-}
+.plus-icon { font-size: 18px; }
 
 .add-link-form {
     background: #fff;
@@ -683,118 +516,32 @@ body {
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* ===== Mobile Navigation Components (hidden on desktop) ===== */
-
-.hamburger-btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: transparent;
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    cursor: pointer;
-    padding: 0;
-    color: var(--text-primary);
-    transition: all 0.2s;
-}
-
-.hamburger-btn:hover { background: #F3F4F6; }
-.hamburger-btn svg { width: 20px; height: 20px; }
-
-.drawer-backdrop {
-    display: none;
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(2px);
-    z-index: 900;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.drawer-backdrop.active { display: block; opacity: 1; }
-
-.sidebar-left.drawer-open {
-    display: flex !important;
-    flex-direction: column;
-    position: fixed;
-    top: 0; left: 0;
-    width: 280px;
-    max-width: 80vw;
-    height: 100%;
-    background: var(--bg-page);
-    z-index: 950;
-    padding: 24px;
-    overflow-y: auto;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
-    animation: slideInLeft 0.3s ease;
-}
-
-@keyframes slideInLeft {
-    from { transform: translateX(-100%); }
-    to { transform: translateX(0); }
-}
-
-.mobile-fab {
-    display: none;
-    position: fixed;
-    bottom: 24px; right: 24px;
-    width: 56px; height: 56px;
-    background: var(--accent-orange);
-    color: white;
-    border: none;
-    border-radius: 16px;
-    font-size: 28px;
-    cursor: pointer;
-    z-index: 800;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35);
-    transition: all 0.2s;
-}
-
-.mobile-fab:hover {
-    background: var(--accent-orange-hover);
-    transform: translateY(-2px);
-}
-
-/* ===== Media Queries ===== */
-
+/* Media Queries */
 @media (max-width: 1200px) {
     .main-content {
-        grid-template-columns: 200px 1fr 260px;
-        gap: 24px;
+        grid-template-columns: 200px 1fr 280px;
+        gap: 32px;
     }
 }
 
 @media (max-width: 1024px) {
-    .hamburger-btn { display: flex; }
-    .mobile-fab { display: flex; }
-    .main-content { grid-template-columns: 1fr; gap: 24px; }
-    .sidebar-left { display: none; }
-    .sidebar-right { display: none; }
-    .content-mid { order: 1; }
-}
-
-@media (max-width: 768px) {
-    .content-title { font-size: 20px; }
-    .search-input { font-size: 14px; padding: 10px 14px 10px 40px; }
-    .links-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-    .link-card { padding: 16px; min-height: 140px; }
-    .status-message { left: 16px; right: 16px; bottom: 16px; text-align: center; }
-}
-
-@media (max-width: 480px) {
-    .links-grid { grid-template-columns: 1fr; }
-    .card-title { font-size: 14px; }
-    .card-domain { font-size: 12px; }
-    .card-badge { font-size: 9px; }
-    .content-header { margin-bottom: 16px; }
-    .search-row { margin-bottom: 20px; }
-    .mobile-fab { bottom: 16px; right: 16px; }
+    .main-content {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+    
+    .sidebar-left, .sidebar-right {
+        display: none; /* For simplicity in this responsive pass, or hide non-critical sidebars */
+        /* Ideally convert to hamburger menu or verify requirments. User asked for desktop redesign. */
+        /* Let's stack them for safety */
+    }
+    
+    .sidebar-left { display: block; order: 1; }
+    .content-mid { order: 2; }
+    .sidebar-right { order: 3; }
+    
+    .nav-list { flex-direction: row; overflow-x: auto; padding-bottom: 8px; }
+    .nav-item { white-space: nowrap; }
 }
 `;
 }

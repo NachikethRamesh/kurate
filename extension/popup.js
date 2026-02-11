@@ -20,13 +20,15 @@ const categoryInput = document.getElementById('category');
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     const token = await getAuthToken();
+    setupCustomDropdown(); // Setup listeners
+
     if (token) {
         await showSaveView();
+        loadCategories(); // Fetch categories if logged in
     } else {
         showView('loginView');
     }
 
-    setupCustomDropdown();
     setupLogoLink();
     setupErrorHandlers();
 });
@@ -68,8 +70,10 @@ function setupCustomDropdown() {
         dropdownOptions.classList.toggle('active');
     });
 
-    document.querySelectorAll('.dropdown-option').forEach(option => {
-        option.addEventListener('click', (e) => {
+    // Delegated event listener for options (since they are dynamic)
+    dropdownOptions.addEventListener('click', (e) => {
+        if (e.target.classList.contains('dropdown-option')) {
+            const option = e.target;
             const val = option.dataset.value;
             const text = option.textContent;
 
@@ -91,7 +95,7 @@ function setupCustomDropdown() {
                 statusEl.textContent = '';
                 statusEl.classList.remove('error', 'success');
             }
-        });
+        }
     });
 
     // Close on click outside
@@ -101,6 +105,40 @@ function setupCustomDropdown() {
             dropdownOptions.classList.remove('active');
         }
     });
+}
+
+async function loadCategories() {
+    try {
+        const token = await getAuthToken();
+        const defaults = ['Sports', 'Entertainment', 'Business', 'Technology', 'Education', 'Other'];
+        let customRows = [];
+
+        if (token) {
+            try {
+                const response = await fetch(`${API_BASE}/categories`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                if (data.success && data.categories) {
+                    customRows = data.categories.map(c => c.name);
+                }
+            } catch (e) {
+                console.error('Failed to fetch custom categories', e);
+            }
+        }
+
+        // Merge and deduplicate
+        const allCategories = [...new Set([...defaults, ...customRows])];
+
+        // Render options
+        if (dropdownOptions) {
+            dropdownOptions.innerHTML = allCategories.map(cat =>
+                `<div class="dropdown-option" data-value="${cat}">${cat}</div>`
+            ).join('');
+        }
+    } catch (e) {
+        console.error('Error loading categories', e);
+    }
 }
 
 // View Management

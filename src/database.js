@@ -52,15 +52,15 @@ async function extractTitleFromUrl(url) {
   }
 }
 
-export async function createUser(db, username, password) {
+export async function createUser(db, username, password, email = null) {
   try {
     const passwordHash = await generatePasswordHash(password);
     const userHash = await generateUserHash(username);
 
     const result = await db.prepare(`
-      INSERT INTO users (username, password_hash, user_hash)
-      VALUES (?, ?, ?)
-    `).bind(username, passwordHash, userHash).run();
+      INSERT INTO users (username, password_hash, user_hash, email)
+      VALUES (?, ?, ?, ?)
+    `).bind(username, passwordHash, userHash, email).run();
 
     return {
       success: true,
@@ -303,6 +303,99 @@ export async function trackEvent(db, userId, eventType, metadata) {
     };
   } catch (error) {
     // Fail silently in production to avoid disrupting user experience
+    return { success: false, error: error.message };
+  }
+}
+
+// Reminder Engine Helpers
+export async function getAllUsers(db) {
+  try {
+    const result = await db.prepare('SELECT id, username FROM users').all();
+    return result.results || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getUserCategoryStats(db, userId) {
+  try {
+    const result = await db.prepare(`
+      SELECT category, COUNT(*) as count, SUM(is_favorite) as favorites
+      FROM links
+      WHERE user_id = ?
+      GROUP BY category
+      ORDER BY favorites DESC, count DESC
+    `).bind(userId).all();
+    return result.results || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function createReminder(db, userId, data) {
+  try {
+    const { title, url, description, source, category } = data;
+    const result = await db.prepare(`
+      INSERT INTO reminders (user_id, title, url, description, source, category)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).bind(userId, title, url, description, source, category).run();
+    return { success: true, id: result.meta.last_row_id };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getUnseenReminders(db, userId) {
+  try {
+    const result = await db.prepare(`
+      SELECT id, title, url, description, source, category, created_at
+      FROM reminders
+      WHERE user_id = ? AND is_shown = 0
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).bind(userId).all();
+    return result.results || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function markReminderAsSeen(db, reminderId) {
+  try {
+    await db.prepare('UPDATE reminders SET is_shown = 1 WHERE id = ?').bind(reminderId).run();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Category Management logic
+export async function getUserCategories(db, userId) {
+  try {
+    const result = await db.prepare('SELECT id, name FROM categories WHERE user_id = ? ORDER BY name ASC').bind(userId).all();
+    return result.results || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function createCategory(db, userId, name) {
+  try {
+    const result = await db.prepare('INSERT INTO categories (user_id, name) VALUES (?, ?)').bind(userId, name).run();
+    return { success: true, id: result.meta.last_row_id, name };
+  } catch (error) {
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return { success: false, error: 'Category already exists' };
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteCategory(db, userId, categoryId) {
+  try {
+    const result = await db.prepare('DELETE FROM categories WHERE id = ? AND user_id = ?').bind(categoryId, userId).run();
+    return { success: result.meta.changes > 0 };
+  } catch (error) {
     return { success: false, error: error.message };
   }
 }
