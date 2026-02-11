@@ -1,5 +1,10 @@
-// API Configuration
-const API_BASE = 'https://kurate.net/api';
+// Extension popup configuration
+const CONFIG = {
+    API_BASE: 'https://kurate.net/api',
+    SITE_URL: 'https://kurate.net',
+    HOME_URL: 'https://kurate.net/home',
+    SIGNUP_URL: 'https://kurate.net?action=signup'
+};
 
 // DOM Elements
 const loginView = document.getElementById('loginView');
@@ -20,20 +25,20 @@ const categoryInput = document.getElementById('category');
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     const token = await getAuthToken();
-    setupCustomDropdown(); // Setup listeners
-
     if (token) {
         await showSaveView();
-        loadCategories(); // Fetch categories if logged in
     } else {
         showView('loginView');
     }
 
+    setupCustomDropdown();
     setupLogoLink();
     setupErrorHandlers();
 });
 
-// UX: Clear error messages when user takes action
+/**
+ * Clears login error messages when the user starts typing in username/password fields.
+ */
 function setupErrorHandlers() {
     const loginInputs = ['username', 'password'];
     loginInputs.forEach(id => {
@@ -48,32 +53,32 @@ function setupErrorHandlers() {
             });
         }
     });
-
 }
 
 // Logo Click Logic
 function setupLogoLink() {
     document.querySelectorAll('.logo').forEach(logo => {
         logo.addEventListener('click', () => {
-            chrome.tabs.create({ url: 'https://kurate.net' });
+            chrome.tabs.create({ url: CONFIG.SITE_URL });
         });
     });
 }
 
-// Custom Dropdown Logic
+/**
+ * Initializes the custom category dropdown — handles open/close, selection, and click-outside dismissal.
+ */
 function setupCustomDropdown() {
     if (!dropdownTrigger) return;
 
     dropdownTrigger.addEventListener('click', (e) => {
         e.stopPropagation();
-        dropdownTrigger.classList.toggle('active');
+        const isOpen = dropdownTrigger.classList.toggle('active');
         dropdownOptions.classList.toggle('active');
+        dropdownTrigger.setAttribute('aria-expanded', isOpen);
     });
 
-    // Delegated event listener for options (since they are dynamic)
-    dropdownOptions.addEventListener('click', (e) => {
-        if (e.target.classList.contains('dropdown-option')) {
-            const option = e.target;
+    document.querySelectorAll('.dropdown-option').forEach(option => {
+        option.addEventListener('click', (e) => {
             const val = option.dataset.value;
             const text = option.textContent;
 
@@ -88,6 +93,7 @@ function setupCustomDropdown() {
             // Close dropdown
             dropdownTrigger.classList.remove('active');
             dropdownOptions.classList.remove('active');
+            dropdownTrigger.setAttribute('aria-expanded', 'false');
 
             // UX: Clear error when category is selected
             const statusEl = document.getElementById('saveStatus');
@@ -95,7 +101,7 @@ function setupCustomDropdown() {
                 statusEl.textContent = '';
                 statusEl.classList.remove('error', 'success');
             }
-        }
+        });
     });
 
     // Close on click outside
@@ -103,42 +109,9 @@ function setupCustomDropdown() {
         if (dropdownTrigger) {
             dropdownTrigger.classList.remove('active');
             dropdownOptions.classList.remove('active');
+            dropdownTrigger.setAttribute('aria-expanded', 'false');
         }
     });
-}
-
-async function loadCategories() {
-    try {
-        const token = await getAuthToken();
-        const defaults = ['Sports', 'Entertainment', 'Business', 'Technology', 'Education', 'Other'];
-        let customRows = [];
-
-        if (token) {
-            try {
-                const response = await fetch(`${API_BASE}/categories`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
-                if (data.success && data.categories) {
-                    customRows = data.categories.map(c => c.name);
-                }
-            } catch (e) {
-                console.error('Failed to fetch custom categories', e);
-            }
-        }
-
-        // Merge and deduplicate
-        const allCategories = [...new Set([...defaults, ...customRows])];
-
-        // Render options
-        if (dropdownOptions) {
-            dropdownOptions.innerHTML = allCategories.map(cat =>
-                `<div class="dropdown-option" data-value="${cat}">${cat}</div>`
-            ).join('');
-        }
-    } catch (e) {
-        console.error('Error loading categories', e);
-    }
 }
 
 // View Management
@@ -150,6 +123,9 @@ function showView(viewId) {
     if (target) target.classList.remove('hidden');
 }
 
+/**
+ * Switches to the save-link view and populates the URL display with the active tab's URL.
+ */
 async function showSaveView() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -165,12 +141,12 @@ async function showSaveView() {
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
         const errorEl = document.getElementById('loginError');
 
         try {
-            const response = await fetch(`${API_BASE}/auth/login`, {
+            const response = await fetch(`${CONFIG.API_BASE}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -186,7 +162,7 @@ if (loginForm) {
             } else {
                 // UX: If user not found, auto-redirect to sign-up on website
                 if (data.error === 'User not found') {
-                    chrome.tabs.create({ url: 'https://kurate.net?action=signup' });
+                    chrome.tabs.create({ url: CONFIG.SIGNUP_URL });
                     window.close();
                     return;
                 }
@@ -204,7 +180,7 @@ if (loginForm) {
     if (joinLink) {
         joinLink.addEventListener('click', (e) => {
             e.preventDefault();
-            chrome.tabs.create({ url: 'https://kurate.net?action=signup' });
+            chrome.tabs.create({ url: CONFIG.SIGNUP_URL });
             window.close();
         });
     }
@@ -217,7 +193,10 @@ if (logoutBtn) {
     });
 }
 
-// Save Link
+/**
+ * Handles the save-link form submission — fetches page title from backend,
+ * then saves the link with the selected category.
+ */
 if (saveForm) {
     saveForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -234,19 +213,21 @@ if (saveForm) {
         try {
             const token = await getAuthToken();
 
-            // Fetch title from backend API
-            let title = window.currentTabTitle; // Fallback to tab title
+            // Fetch title from backend API, fall back to tab title on failure
+            let title = window.currentTabTitle;
             try {
-                const metaResponse = await fetch(`${API_BASE}/meta?url=${encodeURIComponent(url)}`);
-                const metaData = await metaResponse.json();
-                if (metaData && metaData.title) {
-                    title = metaData.title;
+                const metaResponse = await fetch(`${CONFIG.API_BASE}/meta?url=${encodeURIComponent(url)}`);
+                if (metaResponse.ok) {
+                    const metaData = await metaResponse.json();
+                    if (metaData && metaData.title) {
+                        title = metaData.title;
+                    }
                 }
             } catch (metaError) {
                 console.log('Meta fetch failed, using tab title:', metaError);
             }
 
-            const response = await fetch(`${API_BASE}/links`, {
+            const response = await fetch(`${CONFIG.API_BASE}/links`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -272,7 +253,7 @@ if (saveForm) {
 
 if (viewLinksBtn) {
     viewLinksBtn.addEventListener('click', () => {
-        chrome.tabs.create({ url: 'https://kurate.net/home' });
+        chrome.tabs.create({ url: CONFIG.HOME_URL });
         window.close();
     });
 }
@@ -290,7 +271,10 @@ if (saveAnotherBtn) {
     });
 }
 
-// Helper Functions
+/**
+ * Retrieves the stored auth token from chrome.storage.local.
+ * @returns {Promise<string|null>}
+ */
 async function getAuthToken() {
     const result = await chrome.storage.local.get('authToken');
     return result.authToken || null;

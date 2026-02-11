@@ -10,18 +10,6 @@
     "host_permissions": [
         "https://kurate.net/*"
     ],
-    "content_scripts": [
-        {
-            "matches": [
-                "https://kurate.net/*",
-                "http://localhost:8787/*"
-            ],
-            "js": [
-                "content.js"
-            ],
-            "run_at": "document_start"
-        }
-    ],
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
@@ -38,10 +26,7 @@
         "128": "icons/icon-128.png"
     },
     "background": {
-        "service_worker": "background.js",
-        "scripts": [
-            "background.js"
-        ]
+        "service_worker": "background.js"
     },
     "browser_specific_settings": {
         "gecko": {

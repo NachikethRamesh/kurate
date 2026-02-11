@@ -1,56 +1,31 @@
-// PUSH NOTIFICATIONS DISABLED FOR RECOMMENDATIONS
-// // Setup daily reminder at 9:05 AM
-// function setupDailyReminder() {
-//     chrome.alarms.create('daily-reminder', {
-//         when: getNext905AM(),
-//         periodInMinutes: 1440 // Every 24 hours
-//     });
-// }
-//
-// function getNext905AM() {
-//     const now = new Date();
-//     const next = new Date();
-//     next.setHours(9, 5, 0, 0);
-//
-//     // If 9:05 AM has already passed today, set for tomorrow
-//     if (next <= now) {
-//         next.setDate(next.getDate() + 1);
-//     }
-//     return next.getTime();
-// }
+// Background service worker for the Kurate extension
 
+/**
+ * Attempts to open the extension popup, falling back to opening Kurate in a new tab
+ * on browsers that don't support chrome.action.openPopup() (e.g. Firefox).
+ * @param {string} [fallbackUrl='https://kurate.net/home'] - URL to open if popup isn't supported
+ */
+function tryOpenPopup(fallbackUrl = 'https://kurate.net/home') {
+    if (typeof chrome.action.openPopup === 'function') {
+        chrome.action.openPopup();
+    } else {
+        chrome.tabs.create({ url: fallbackUrl });
+    }
+}
+
+// Listen for extension installation
 chrome.runtime.onInstalled.addListener(() => {
     console.log('Kurate extension installed');
-    // PUSH NOTIFICATIONS DISABLED FOR RECOMMENDATIONS
-    // setupDailyReminder();
 });
 
-// PUSH NOTIFICATIONS DISABLED FOR RECOMMENDATIONS
-// chrome.alarms.onAlarm.addListener((alarm) => {
-//     if (alarm.name === 'daily-reminder') {
-//         chrome.notifications.create({
-//             type: 'basic',
-//             iconUrl: 'icons/icon-128.png',
-//             title: 'Kurate',
-//             message: "Here's your top pick of the day. Read more on Kurate",
-//             priority: 2
-//         });
-//     }
-// });
-
-// Optional: Add keyboard shortcut handler
+// Keyboard shortcut handler — allows users to save links via configurable hotkey
 chrome.commands?.onCommand?.addListener((command) => {
     if (command === 'save-link') {
-        // chrome.action.openPopup() is not supported in Firefox yet
-        if (typeof chrome.action.openPopup === 'function') {
-            chrome.action.openPopup();
-        } else {
-            console.log('openPopup not supported on this browser');
-        }
+        tryOpenPopup();
     }
 });
 
-// Optional: Context menu integration (right-click to save link)
+// Context menu integration — right-click on any page or link to save it
 chrome.contextMenus?.create({
     id: 'save-to-kurate',
     title: 'Save to Kurate',
@@ -59,12 +34,6 @@ chrome.contextMenus?.create({
 
 chrome.contextMenus?.onClicked?.addListener((info, tab) => {
     if (info.menuItemId === 'save-to-kurate') {
-        if (typeof chrome.action.openPopup === 'function') {
-            chrome.action.openPopup();
-        } else {
-            console.log('openPopup not supported on this browser');
-            // Fallback for Firefox: open the home page or a tab
-            chrome.tabs.create({ url: 'https://kurate.net/home' });
-        }
+        tryOpenPopup();
     }
 });
