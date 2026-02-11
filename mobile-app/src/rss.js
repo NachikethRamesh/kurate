@@ -1,22 +1,4 @@
-/** RSS feed sources organized by category for the Recommended Reading screen. */
-const FEEDS = [
-    { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
-    { name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'sports' },
-    { name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', category: 'sports' },
-    { name: 'Variety', url: 'https://variety.com/feed/', category: 'entertainment' },
-    { name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', category: 'entertainment' },
-    { name: 'Deadline', url: 'https://deadline.com/feed/', category: 'entertainment' },
-    { name: 'Harvard Business Review', url: 'https://hbr.org/feed', category: 'business' },
-    { name: 'Entrepreneur', url: 'https://www.entrepreneur.com/latest.rss', category: 'business' },
-    { name: 'Fortune', url: 'https://fortune.com/feed/', category: 'business' },
-    { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'technology' },
-    { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'technology' },
-    { name: 'Hacker News', url: 'https://hnrss.org/frontpage', category: 'technology' },
-    { name: 'EdSurge', url: 'https://www.edsurge.com/articles_rss', category: 'education' },
-    { name: 'Open Culture', url: 'https://www.openculture.com/feed', category: 'education' },
-    { name: 'Lifehacker', url: 'https://lifehacker.com/rss', category: 'other' },
-    { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', category: 'other' }
-];
+import { FEEDS } from './feeds';
 
 let cachedArticles = [];
 let lastFetchTime = 0;

@@ -43,6 +43,7 @@
         "backgroundColor": { "red": 253, "green": 250, "blue": 248, "alpha": 255 }
       }]
     ],
+    "_comment_projectId": "EAS projectId is a non-secret public identifier required by Expo build system",
     "extra": {
       "eas": {
         "projectId": "d3c526fa-4594-4898-8a06-7b7e561a9d89"
