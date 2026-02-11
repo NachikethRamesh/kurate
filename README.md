@@ -90,4 +90,4 @@ python -c "import zipfile, os; arch = zipfile.ZipFile('kurate-extension.zip', 'w
 
 ---
 
-Built with ❤️ by Kurate
+Built with ❤️ by Nachiketh Ramesh
