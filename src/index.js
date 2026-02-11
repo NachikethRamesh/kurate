@@ -1,6 +1,8 @@
 import { handleAuthLogin, handleAuthRegister, handlePasswordReset, handleAuthLogout, validateToken } from './auth.js';
 import { handleLinks, handleMarkRead, handleToggleFavorite } from './links.js';
-import { checkDatabaseHealth, trackEvent } from './database.js';
+import { checkDatabaseHealth, trackEvent, getUserCategories, createCategory, deleteCategory } from './database.js';
+import { handleRemindersRequest, runReminderEngine } from './reminders_engine.js';
+import { RSS_FEEDS } from './config.js';
 import { CORS_HEADERS, createResponse, createErrorResponse } from './constants.js';
 
 async function handleHealth(request, env) {
@@ -26,16 +28,10 @@ async function handleHealth(request, env) {
     }
 }
 
-function isMobile(request) {
-    const ua = (request.headers.get('User-Agent') || '').toLowerCase();
-    return /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile|tablet/i.test(ua);
-}
-
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const path = url.pathname;
-        const mobile = isMobile(request);
 
         // Handle CORS preflight requests
         if (request.method === 'OPTIONS') {
@@ -73,6 +69,51 @@ export default {
 
         if (path === '/api/links/toggle-favorite') {
             return handleToggleFavorite(request, env);
+        }
+
+        if (path === '/api/reminders') {
+            return handleRemindersRequest(request, env);
+        }
+
+        if (path === '/api/categories') {
+            const tokenUser = validateToken(request.headers.get('Authorization'));
+            if (!tokenUser) return createErrorResponse('Unauthorized', 401);
+
+            if (request.method === 'GET') {
+                const categories = await getUserCategories(env.DB, tokenUser.userId);
+                return createResponse({ success: true, categories });
+            }
+
+            if (request.method === 'POST') {
+                try {
+                    const data = await request.json();
+                    if (!data || !data.name) return createErrorResponse('Category name required', 400);
+                    const result = await createCategory(env.DB, tokenUser.userId, data.name);
+                    // Explicitly construct response to ensure correct JSON structure
+                    if (!result.success) return createErrorResponse(result.error || 'Failed', 400);
+                    return createResponse(result);
+                } catch (e) {
+                    // Catch empty body or invalid JSON
+                    return createErrorResponse('Invalid JSON body', 400);
+                }
+            }
+
+            if (request.method === 'DELETE') {
+                const id = url.searchParams.get('id');
+                if (!id) return createErrorResponse('ID required', 400);
+                const result = await deleteCategory(env.DB, tokenUser.userId, id);
+                return createResponse({ success: result.success });
+            }
+        }
+
+        // System trigger to run reminders (could be a cron trigger in wrangler.toml)
+        if (path === '/api/system/run-reminders') {
+            // Simple auth check for internal triggers
+            const authKey = url.searchParams.get('key');
+            if (authKey !== env.JWT_SECRET) return createErrorResponse('Unauthorized', 401);
+
+            const result = await runReminderEngine(env.DB);
+            return createResponse(result);
         }
 
         if (path === '/api/meta') {
@@ -150,8 +191,7 @@ export default {
 
         // Landing page for root
         if (path === '/') {
-            const html = mobile ? getMobileLandingHTML() : getLandingHTML();
-            return new Response(html, {
+            return new Response(getLandingHTML(), {
                 headers: { 'Content-Type': 'text/html' }
             });
         }
@@ -163,22 +203,19 @@ export default {
 
         // App routes - protected views
         if (path === '/app' || path === '/home' || path === '/dashboard') {
-            const html = mobile ? getMobileIndexHTML() : getIndexHTML();
-            return new Response(html, {
+            return new Response(getIndexHTML(), {
                 headers: { 'Content-Type': 'text/html' }
             });
         }
 
         if (path === '/styles.css') {
-            const css = mobile ? getMobileStylesCSS() : getStylesCSS();
-            return new Response(css, {
+            return new Response(getStylesCSS(), {
                 headers: { 'Content-Type': 'text/css' }
             });
         }
 
         if (path === '/app.js') {
-            const js = mobile ? getMobileAppJS() : getAppJS();
-            return new Response(js, {
+            return new Response(getAppJS(), {
                 headers: { 'Content-Type': 'application/javascript' }
             });
         }
@@ -192,10 +229,14 @@ export default {
         }
 
         // Default fallback to index.html for SPA routing
-        const fallbackHtml = mobile ? getMobileIndexHTML() : getIndexHTML();
-        return new Response(fallbackHtml, {
+        return new Response(getIndexHTML(), {
             headers: { 'Content-Type': 'text/html' }
         });
+    },
+
+    async scheduled(event, env, ctx) {
+        console.log('Cron triggered: Running Reminder Engine');
+        ctx.waitUntil(runReminderEngine(env.DB));
     }
 };
 
@@ -228,18 +269,9 @@ function getIndexHTML() {
                     <div class="logo-circle-icon">K</div>
                     <span class="logo-text">kurate</span>
                 </a>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <button id="logoutBtn" class="logout-btn">
-                        Log out
-                    </button>
-                    <button id="hamburgerBtn" class="hamburger-btn" onclick="window.app.toggleDrawer()">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <line x1="3" y1="12" x2="21" y2="12"></line>
-                            <line x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
-                </div>
+                <button id="logoutBtn" class="logout-btn">
+                    Log out
+                </button>
             </div>
         </header>
 
@@ -280,18 +312,20 @@ function getIndexHTML() {
                     </div>
 
                     <div class="nav-section">
-                        <h3 class="nav-header">Categories</h3>
-                        <nav class="nav-list" id="categoryNav">
-                            <!-- Populated by JS or static for now, JS toggles active class -->
-                             <button class="nav-item category-item active" data-category="all">
-                                All
+                        <div class="nav-header-actions" style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+                             <h3 class="nav-header">CATEGORIES</h3>
+                             <button id="addCategoryBtn" class="icon-btn" title="Add Category" style="padding:2px; color:var(--text-tertiary);">
+                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                              </button>
-                             <button class="nav-item category-item" data-category="Sports">Sports</button>
-                             <button class="nav-item category-item" data-category="Entertainment">Entertainment</button>
-                             <button class="nav-item category-item" data-category="Business">Business</button>
-                             <button class="nav-item category-item" data-category="Technology">Technology</button>
-                             <button class="nav-item category-item" data-category="Education">Education</button>
-                             <button class="nav-item category-item" data-category="Other">Other</button>
+                        </div>
+                        <div id="newCategoryInputContainer" style="display:none; margin-bottom: 8px;">
+                            <div style="display:flex; gap:6px; align-items:center;">
+                                <input type="text" id="newCategoryInput" class="nav-input" placeholder="New..." autocomplete="off" style="flex:1; width:auto; padding:6px 8px;">
+                                <button id="submitNewCategoryBtn" class="btn-xs-primary">Create</button>
+                            </div>
+                        </div>
+                        <nav class="nav-list" id="categoryNav">
+                            <!-- Populated by JS -->
                         </nav>
                     </div>
                 </aside>
@@ -302,17 +336,12 @@ function getIndexHTML() {
                         <h2 class="content-title" id="userGreeting">Curated List</h2>
                     </div>
 
-                    <div class="search-row">
-                        <div class="search-container">
-                            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                            </svg>
-                            <input type="text" id="searchInput" class="search-input" placeholder="Search through your curated list..." autocomplete="off">
-                        </div>
-                        <button class="add-link-fab" id="addLinkFab" onclick="window.app.openAddLinkModal()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                        </button>
+                    <div class="search-container">
+                        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search through your curated list..." autocomplete="off">
                     </div>
 
                     <section class="links-container">
@@ -324,123 +353,92 @@ function getIndexHTML() {
                     </section>
                 </main>
 
-                <!-- Right Sidebar: Recommended Reading -->
+                <!-- Right Sidebar: Add Link -->
                 <aside class="sidebar-right">
-                    <div class="recommended-sidebar">
-                        <h2 class="recommended-sidebar-header">Recommended Reading</h2>
-                        <div class="recommended-sidebar-filters" id="sidebarFilters">
-                            <button class="recommended-filter active" data-category="all">All</button>
-                            <button class="recommended-filter" data-category="sports">Sports</button>
-                            <button class="recommended-filter" data-category="entertainment">Entertainment</button>
-                            <button class="recommended-filter" data-category="business">Business</button>
-                            <button class="recommended-filter" data-category="technology">Technology</button>
-                            <button class="recommended-filter" data-category="education">Education</button>
-                            <button class="recommended-filter" data-category="other">Other</button>
+                    <div class="sidebar-card">
+                        <div class="sidebar-header">
+                             <h2 class="sidebar-title-small">
+                                 Add Link
+                             </h2>
                         </div>
-                        <div class="recommended-sidebar-list" id="recommendedSidebarArticles">
-                            <div class="recommended-loading">
-                                <div class="loading-spinner"></div>
-                                <p>Loading articles...</p>
+                        <form id="addLinkForm" class="add-link-form">
+                            <div class="form-group">
+                                <label for="linkUrl" class="form-label">Link</label>
+                                <input type="url" id="linkUrl" class="form-input" placeholder="https://..." required autocomplete="off">
                             </div>
+                            
+                             <div class="form-group">
+                                 <label class="form-label">Category</label>
+                                 <div class="custom-select-wrapper">
+                                     <input type="hidden" id="linkCategory" value="">
+                                     <button type="button" class="custom-select-trigger" id="categoryTrigger">
+                                         <span id="categoryText">Select Category</span>
+                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                             <path d="M6 9l6 6 6-6"/>
+                                         </svg>
+                                     </button>
+                                     <div class="custom-options" id="categoryOptions">
+                                         <!-- Populated by JS -->
+                                     </div>
+                                 </div>
+                             </div>
+                            
+                            <button type="submit" id="addBtn" class="btn btn-primary btn-full">
+                                Curate
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Recommended Reading Section -->
+                    <div class="sidebar-card recommended-card">
+                        <div class="recommended-section">
+                            <h3 class="sidebar-title-small recommended-sidebar-title">Recommended Reading</h3>
+                            <p class="recommended-desc">Discover trending articles from across the web</p>
+                            <button id="openRecommendedBtn" class="btn btn-primary">
+                                Explore Articles
+                            </button>
                         </div>
                     </div>
-                </aside>
+                    
+                    <!-- Extension Promo (Hidden by default) -->
+                    <div id="extensionPromo" class="sidebar-card" style="display:none; margin-top:16px;">
+                        <!-- Content injected by JS -->
+                    </div>
 
             </div>
         </div>
     </div>
 
-    <!-- Drawer Backdrop (mobile sidebar) -->
-    <div id="drawerBackdrop" class="drawer-backdrop" onclick="window.app.toggleDrawer()"></div>
-
-    <!-- Mobile FAB: Add Link -->
-    <button id="mobileFab" class="mobile-fab" onclick="window.app.toggleMobileAddLink()">+</button>
-
-    <!-- Mobile Add Link Bottom Sheet -->
-    <div id="mobileAddLinkModal" class="mobile-addlink-modal">
-        <div class="mobile-addlink-backdrop" onclick="window.app.toggleMobileAddLink()"></div>
-        <div class="mobile-addlink-content">
-            <div class="mobile-addlink-header">
-                <span class="mobile-addlink-title">Add Link</span>
-                <button class="mobile-addlink-close" onclick="window.app.toggleMobileAddLink()">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Recommended Reading Portal Modal -->
+    <div id="recommendedModal" class="recommended-modal hidden">
+        <div class="recommended-modal-backdrop" onclick="window.app.closeRecommendedPortal()"></div>
+        <div class="recommended-modal-content">
+            <div class="recommended-modal-header">
+                <div class="recommended-modal-title-section">
+                    <h2 class="recommended-modal-title">Recommended Reading</h2>
+                    <p class="recommended-modal-subtitle">Trending articles from the past 7 days</p>
+                </div>
+                <button class="recommended-modal-close" onclick="window.app.closeRecommendedPortal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M18 6L6 18M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
-            <form id="mobileAddLinkForm" class="add-link-form">
-                <div class="form-group">
-                    <label for="mobileLinkUrl" class="form-label">Link</label>
-                    <input type="url" id="mobileLinkUrl" class="form-input" placeholder="https://..." required autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Category</label>
-                    <div class="custom-select-wrapper">
-                        <input type="hidden" id="mobileLinkCategory" value="">
-                        <button type="button" class="custom-select-trigger" id="mobileCategoryTrigger">
-                            <span id="mobileCategoryText">Select Category</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M6 9l6 6 6-6"/>
-                            </svg>
-                        </button>
-                        <div class="custom-options" id="mobileCategoryOptions">
-                            <div class="custom-option" data-value="Sports">Sports</div>
-                            <div class="custom-option" data-value="Entertainment">Entertainment</div>
-                            <div class="custom-option" data-value="Business">Business</div>
-                            <div class="custom-option" data-value="Technology">Technology</div>
-                            <div class="custom-option" data-value="Education">Education</div>
-                            <div class="custom-option" data-value="Other">Other</div>
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-full">
-                    Curate
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Desktop Add Link Modal -->
-    <div id="addLinkModal" class="add-link-modal hidden">
-        <div class="add-link-modal-backdrop" onclick="window.app.closeAddLinkModal()"></div>
-        <div class="add-link-modal-content">
-            <div class="add-link-modal-header">
-                <h2 class="add-link-modal-title">Add Link</h2>
-                <button class="add-link-modal-close" onclick="window.app.closeAddLinkModal()">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M18 6L6 18M6 6l12 12"/>
-                    </svg>
-                </button>
+            <div class="recommended-modal-filters">
+                <button class="recommended-filter active" data-source="all">All</button>
+                <button class="recommended-filter" data-source="sports">Sports</button>
+                <button class="recommended-filter" data-source="entertainment">Entertainment</button>
+                <button class="recommended-filter" data-source="business">Business</button>
+                <button class="recommended-filter" data-source="technology">Technology</button>
+                <button class="recommended-filter" data-source="education">Education</button>
+                <button class="recommended-filter" data-source="other">Other</button>
             </div>
-            <form id="addLinkForm" class="add-link-form">
-                <div class="form-group">
-                    <label for="linkUrl" class="form-label">Link</label>
-                    <input type="url" id="linkUrl" class="form-input" placeholder="https://..." required autocomplete="off">
+            <div id="recommendedArticles" class="recommended-articles-grid">
+                <div class="recommended-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading trending articles...</p>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Category</label>
-                    <div class="custom-select-wrapper">
-                        <input type="hidden" id="linkCategory" value="">
-                        <button type="button" class="custom-select-trigger" id="categoryTrigger">
-                            <span id="categoryText">Select Category</span>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M6 9l6 6 6-6"/>
-                            </svg>
-                        </button>
-                        <div class="custom-options" id="categoryOptions">
-                            <div class="custom-option" data-value="Sports">Sports</div>
-                            <div class="custom-option" data-value="Entertainment">Entertainment</div>
-                            <div class="custom-option" data-value="Business">Business</div>
-                            <div class="custom-option" data-value="Technology">Technology</div>
-                            <div class="custom-option" data-value="Education">Education</div>
-                            <div class="custom-option" data-value="Other">Other</div>
-                        </div>
-                    </div>
-                </div>
-                <button type="submit" id="addBtn" class="btn btn-primary btn-full">
-                    Curate
-                </button>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -473,8 +471,57 @@ function getStylesCSS() {
     --radius-md: 12px;
     --radius-sm: 8px;
     
-    --sidebar-width-left: clamp(180px, 14vw, 216px);
-    --sidebar-width-right: clamp(320px, 26vw, 400px);
+    --sidebar-width-left: 216px;
+    --sidebar-width-right: 280px;
+}
+
+/* Extension Pill */
+.extension-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid #F5F5F5;
+    border-radius: 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+.extension-pill:hover {
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08); 
+    transform: translateY(-2px);
+}
+.extension-icon-wrapper {
+    width: 24px; 
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.extension-icon-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+.extension-text {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 14px;
+    color: #1C1917;
+    transition: color 0.2s;
+}
+.extension-pill:hover .extension-text {
+    color: var(--accent-orange);
+}
+
+.card-title {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 * {
@@ -507,13 +554,13 @@ body {
 .container {
     max-width: 1440px;
     margin: 0 auto;
-    padding: 0 clamp(16px, 3vw, 40px);
+    padding: 0 40px;
     width: 100%;
     flex: 1;
 }
 
 .app-header {
-    padding: 24px clamp(16px, 3vw, 40px);
+    padding: 24px 40px;
     max-width: 1440px;
     margin: 0 auto;
     width: 100%;
@@ -555,11 +602,56 @@ body {
     letter-spacing: -0.02em;
 }
 
-/* Logout Button */
-.logout-btn {
-    background: transparent;
-    border: 1px solid var(--border-light);
-    padding: 8px 16px;
+    /* Logout Button */
+    .logout-btn {
+        background: transparent;
+        border: 1px solid var(--border-light);
+        padding: 8px 16px;
+        border-radius: 100px;
+        font-family: var(--font-sans);
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+
+    .nav-input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--accent-orange);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-sans);
+        font-size: 13px;
+        background: #fff;
+        color: var(--text-primary);
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(210, 98, 42, 0.1);
+    }
+
+    .btn-xs-primary {
+        background: var(--accent-orange);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-sm);
+        padding: 6px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        white-space: nowrap;
+        height: 32px; /* Match input height roughly */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .btn-xs-primary:hover {
+        background: var(--accent-orange-hover);
+    }
     border-radius: 100px;
     font-family: var(--font-sans);
     font-size: 14px;
@@ -583,7 +675,7 @@ body {
 .main-content {
     display: grid;
     grid-template-columns: var(--sidebar-width-left) 1fr var(--sidebar-width-right);
-    gap: clamp(24px, 3vw, 40px);
+    gap: 40px;
     padding-top: 12px;
     padding-bottom: 64px;
 }
@@ -597,11 +689,24 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-primary);
-    margin-bottom: 14px;
-    margin-top: 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.nav-list { display: flex; flex-direction: column; gap: 4px; }
+.nav-list { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 4px; 
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.nav-list::-webkit-scrollbar { width: 4px; }
+.nav-list::-webkit-scrollbar-track { background: transparent; }
+.nav-list::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 4px; }
+.nav-list::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
 
 .nav-item {
     display: flex;
@@ -686,16 +791,9 @@ body {
 }
 
 /* Search */
-.search-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 16px;
-}
-
 .search-container {
     position: relative;
-    flex: 1;
+    margin-bottom: 16px;
 }
 
 .search-input {
@@ -894,279 +992,22 @@ body {
 .icon-btn:hover { background: #F3F4F6; color: var(--text-primary); }
 
 /* Right Sidebar */
-.sidebar-right {
-    align-self: start;
-    position: sticky;
-    top: 12px;
+.sidebar-right .sidebar-card {
+    background: #FAFAFA;
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border-light);
 }
 
-/* Right Sidebar — Recommended Reading */
-.recommended-sidebar {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 130px);
-    overflow: hidden;
-    padding: 16px 0 16px 16px;
-    background: #FEFEFE;
-    border: 1px solid #E8E8E8;
-    border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.recommended-sidebar-header {
+.sidebar-title-small {
     font-size: 16px;
     font-weight: 700;
     font-family: var(--font-sans);
     color: var(--text-primary);
-    margin-bottom: 12px;
-    padding-right: 16px;
-    flex-shrink: 0;
-}
-
-.recommended-sidebar-filters {
     display: flex;
-    gap: 6px;
-    overflow-x: auto;
-    padding-bottom: 12px;
-    padding-right: 16px;
-    flex-shrink: 0;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-.recommended-sidebar-filters::-webkit-scrollbar {
-    display: none;
-}
-
-.recommended-sidebar-list {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 10px;
-    padding-right: 8px;
-}
-
-.recommended-sidebar-list::-webkit-scrollbar {
-    width: 8px;
-}
-
-.recommended-sidebar-list::-webkit-scrollbar-track {
-    background: transparent;
-    margin: 8px 0;
-}
-
-.recommended-sidebar-list::-webkit-scrollbar-thumb {
-    background: #D1D5DB;
-    border-radius: 10px;
-    border: 2px solid #FEFEFE;
-}
-
-.recommended-sidebar-list::-webkit-scrollbar-thumb:hover {
-    background: #9CA3AF;
-}
-
-.recommended-sidebar-article {
-    background: #FAFAFA;
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.recommended-sidebar-article:hover {
-    border-color: #D1D5DB;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-}
-
-.recommended-sidebar-article .recommended-article-source {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.recommended-sidebar-article .recommended-article-source-badge {
-    padding: 2px 6px;
-    background: #FFF7ED;
-    border-radius: 4px;
-    font-size: 9px;
-    font-weight: 600;
-    color: var(--accent-orange);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-
-.recommended-sidebar-article .recommended-article-date {
-    font-size: 10px;
-    color: var(--text-tertiary);
-}
-
-.recommended-sidebar-article .recommended-article-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
-    line-height: 1.3;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.recommended-sidebar-article .recommended-article-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 2px;
-    padding-top: 6px;
-    border-top: 1px solid #F3F4F6;
-}
-
-.recommended-sidebar-article .recommended-article-domain {
-    font-size: 10px;
-    color: var(--text-tertiary);
-}
-
-.recommended-sidebar-article .recommended-save-btn {
-    padding: 4px 10px;
-    background: var(--accent-orange);
-    border: none;
-    border-radius: 5px;
-    font-size: 10px;
-    font-weight: 500;
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.recommended-sidebar-article .recommended-save-btn:hover {
-    background: var(--accent-orange-hover);
-}
-
-.recommended-sidebar-article .recommended-save-btn.saved {
-    background: #D1FAE5;
-    color: #059669;
-}
-
-/* Desktop Add Link FAB */
-.add-link-fab {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    border-radius: 50%;
-    background: var(--accent-orange);
-    color: white;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(210, 98, 42, 0.3);
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.add-link-fab svg {
-    width: 17px;
-    height: 17px;
-}
-
-.add-link-fab:hover {
-    background: var(--accent-orange-hover);
-    transform: scale(1.08);
-    box-shadow: 0 4px 12px rgba(210, 98, 42, 0.4);
-}
-
-/* Desktop Add Link Modal */
-.add-link-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.2s ease;
-}
-
-.add-link-modal.hidden {
-    display: none;
-}
-
-.add-link-modal-backdrop {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(4px);
-}
-
-.add-link-modal-content {
-    position: relative;
-    width: 420px;
-    max-width: 90vw;
-    background: #fff;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.add-link-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-
-.add-link-modal-title {
-    font-size: 18px;
-    font-weight: 700;
-    font-family: var(--font-sans);
-    color: var(--text-primary);
-}
-
-.add-link-modal-close {
-    width: 32px;
-    height: 32px;
-    border: none;
-    background: #F3F4F6;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    transition: all 0.2s;
-}
-
-.add-link-modal-close:hover {
-    background: #E5E7EB;
-    color: var(--text-primary);
-}
-
-@keyframes slideUpModal {
-    from {
-        opacity: 0;
-        transform: translateY(30px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    margin-bottom: 16px;
 }
 
 .add-link-form {
@@ -1380,19 +1221,178 @@ body {
     to { transform: translateY(0); opacity: 1; }
 }
 
-/* Sidebar Recommended Filter Pills */
+/* Recommended Reading Section */
+.recommended-card {
+    margin-top: 16px;
+    background: #FAFAFA;
+    border: 1px solid var(--border-light);
+}
+
+.recommended-section {
+    text-align: center;
+    padding: 4px 0;
+}
+
+.recommended-sidebar-title {
+    margin-bottom: 4px !important;
+}
+
+.recommended-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.btn-recommended {
+    width: 100%;
+    background: var(--accent-orange);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-recommended:hover {
+    background: var(--accent-orange-hover);
+}
+
+.btn-recommended:focus {
+    outline: none;
+}
+
+.btn-recommended svg {
+    transition: transform 0.2s ease;
+}
+
+.btn-recommended:hover svg {
+    transform: translateX(4px);
+}
+
+/* Recommended Modal Portal */
+.recommended-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.recommended-modal.hidden {
+    display: none;
+}
+
+.recommended-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.recommended-modal-content {
+    position: relative;
+    width: 85%;
+    height: 85%;
+    background: #fff;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpModal {
+    from { 
+        opacity: 0;
+        transform: translateY(30px) scale(0.98);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.recommended-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid #E5E7EB;
+    background: #FAFAFA;
+}
+
+.recommended-modal-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.recommended-modal-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 2px 0 0;
+}
+
+.recommended-modal-close {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: #F3F4F6;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: var(--text-secondary);
+}
+
+.recommended-modal-close:hover {
+    background: #E5E7EB;
+    color: var(--text-primary);
+}
+
+.recommended-modal-filters {
+    display: flex;
+    gap: 8px;
+    padding: 16px 32px;
+    border-bottom: 1px solid #F3F4F6;
+    background: #fff;
+}
+
 .recommended-filter {
-    padding: 6px 12px;
+    padding: 8px 16px;
     border: 1px solid #E5E7EB;
     background: #fff;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
-    white-space: nowrap;
-    flex-shrink: 0;
 }
 
 .recommended-filter:hover {
@@ -1406,32 +1406,140 @@ body {
     color: white;
 }
 
-/* Sidebar Recommended Empty */
-.recommended-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 0;
-    color: var(--text-secondary);
-    text-align: center;
-    font-size: 12px;
+.recommended-articles-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    align-content: start;
 }
 
-.recommended-empty-icon {
-    font-size: 24px;
-    margin-bottom: 8px;
+.recommended-articles-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.recommended-articles-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.recommended-articles-grid::-webkit-scrollbar-thumb {
+    background: #D1D5DB;
+    border-radius: 10px;
+}
+
+/* Recommended Article Card */
+.recommended-article {
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    min-height: 200px;
+    height: 200px;
+}
+
+.recommended-article:hover {
+    border-color: #D1D5DB;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+.recommended-article-source {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.recommended-article-source-badge {
+    padding: 3px 8px;
+    background: #FFF7ED;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-orange);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.recommended-article-date {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.recommended-article-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.recommended-article-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.recommended-article-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid #F3F4F6;
+}
+
+.recommended-article-domain {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.recommended-save-btn {
+    padding: 6px 12px;
+    background: var(--accent-orange);
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s;
+}
+
+.recommended-save-btn:hover {
+    background: var(--accent-orange-hover);
+}
+
+.recommended-save-btn.saved {
+    background: #D1FAE5;
+    color: #059669;
 }
 
 /* Loading State */
 .recommended-loading {
+    grid-column: 1 / -1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 0;
+    padding: 60px 0;
     color: var(--text-secondary);
-    font-size: 12px;
 }
 
 .loading-spinner {
@@ -1448,306 +1556,38 @@ body {
     to { transform: rotate(360deg); }
 }
 
-/* Empty/Error State for Recommended */
-.recommended-empty {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px 0;
-    color: var(--text-secondary);
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
-.recommended-empty-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
+/* Media Queries */
 
-/* ===== Mobile Navigation Components (hidden on desktop) ===== */
-
-.hamburger-btn {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    background: transparent;
-    border: 1px solid var(--border-light);
-    border-radius: 10px;
-    cursor: pointer;
-    padding: 0;
-    color: var(--text-primary);
-    transition: all 0.2s;
-}
-
-.hamburger-btn:hover {
-    background: #F3F4F6;
-}
-
-.hamburger-btn svg {
-    width: 20px;
-    height: 20px;
-}
-
-/* Drawer Overlay */
-.drawer-backdrop {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(2px);
-    z-index: 900;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.drawer-backdrop.active {
-    display: block;
-    opacity: 1;
-}
-
-/* Sidebar Drawer (mobile) */
-.sidebar-left.drawer-open {
-    display: flex !important;
-    flex-direction: column;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 280px;
-    max-width: 80vw;
-    height: 100%;
-    background: var(--bg-page);
-    z-index: 950;
-    padding: 24px;
-    overflow-y: auto;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
-    animation: slideInLeft 0.3s ease;
-}
-
-@keyframes slideInLeft {
-    from { transform: translateX(-100%); }
-    to { transform: translateX(0); }
-}
-
-/* Floating Action Button for Add Link (mobile) */
-.mobile-fab {
-    display: none;
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    width: 56px;
-    height: 56px;
-    background: var(--accent-orange);
-    color: white;
-    border: none;
-    border-radius: 16px;
-    font-size: 28px;
-    cursor: pointer;
-    z-index: 800;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(210, 98, 42, 0.35);
-    transition: all 0.2s;
-}
-
-.mobile-fab:hover {
-    background: var(--accent-orange-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(210, 98, 42, 0.45);
-}
-
-/* Mobile Add Link Modal */
-.mobile-addlink-modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    align-items: flex-end;
-    justify-content: center;
-}
-
-.mobile-addlink-modal.active {
-    display: flex;
-}
-
-.mobile-addlink-backdrop {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(2px);
-}
-
-.mobile-addlink-content {
-    position: relative;
-    width: 100%;
-    max-width: 480px;
-    background: #fff;
-    border-radius: 20px 20px 0 0;
-    padding: 24px;
-    padding-bottom: 32px;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.1);
-    animation: slideUpSheet 0.3s ease;
-}
-
-.mobile-addlink-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.mobile-addlink-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.mobile-addlink-close {
-    width: 32px;
-    height: 32px;
-    background: #F3F4F6;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    transition: background 0.2s;
-}
-
-.mobile-addlink-close:hover {
-    background: #E5E7EB;
-}
-
-@keyframes slideUpSheet {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-}
-
-/* ===== Media Queries ===== */
-
-/* Small laptops */
+/* Media Queries */
 @media (max-width: 1200px) {
     .main-content {
-        grid-template-columns: 200px 1fr 340px;
-        gap: 24px;
+        grid-template-columns: 200px 1fr 280px;
+        gap: 32px;
     }
 }
 
-/* Tablet / collapse to single column + mobile nav */
 @media (max-width: 1024px) {
-    html, body {
-        overflow: auto;
-        overflow-x: hidden;
-    }
-
-    .hamburger-btn {
-        display: flex;
-    }
-
-    .mobile-fab {
-        display: flex;
-    }
-
     .main-content {
         grid-template-columns: 1fr;
-        gap: 24px;
+        gap: 40px;
     }
-
-    .sidebar-left {
-        display: none;
+    
+    .sidebar-left, .sidebar-right {
+        display: none; /* For simplicity in this responsive pass, or hide non-critical sidebars */
+        /* Ideally convert to hamburger menu or verify requirments. User asked for desktop redesign. */
+        /* Let's stack them for safety */
     }
-
-    .sidebar-right {
-        display: none;
-    }
-
-    .content-mid {
-        order: 1;
-    }
-
-    .links-container {
-        max-height: none;
-        overflow-y: visible;
-    }
-
-    .links-scroll-container {
-        max-height: none;
-        overflow-y: visible;
-    }
-
-    .add-link-fab {
-        display: none;
-    }
-}
-
-/* Mobile */
-@media (max-width: 768px) {
-    .content-title {
-        font-size: 20px;
-    }
-
-    .search-input {
-        font-size: 14px;
-        padding: 10px 14px 10px 40px;
-    }
-
-    .links-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 16px;
-    }
-
-    .link-card {
-        padding: 16px;
-        min-height: 140px;
-    }
-
-    .status-message {
-        left: 16px;
-        right: 16px;
-        bottom: 16px;
-        text-align: center;
-    }
-}
-
-/* Small phone */
-@media (max-width: 480px) {
-    .links-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .card-title {
-        font-size: 14px;
-    }
-
-    .card-domain {
-        font-size: 12px;
-    }
-
-    .card-badge {
-        font-size: 9px;
-    }
-
-    .content-header {
-        margin-bottom: 16px;
-    }
-
-    .search-row {
-        margin-bottom: 20px;
-    }
-
-    .mobile-fab {
-        bottom: 16px;
-        right: 16px;
-    }
+    
+    .sidebar-left { display: block; order: 1; }
+    .content-mid { order: 2; }
+    .sidebar-right { order: 3; }
+    
+    .nav-list { flex-direction: row; overflow-x: auto; padding-bottom: 8px; }
+    .nav-item { white-space: nowrap; }
 }
 `;
 }
@@ -1769,6 +1609,7 @@ class LinksApp {
         this.currentTab = this.getInitialTab();
         this.searchQuery = '';
         this.categoryFilter = 'all';
+        this.categories = [];
         this.init();
     }
 
@@ -1778,7 +1619,7 @@ class LinksApp {
         return validTabs.includes(hash) ? hash : 'all';
     }
 
-    init() {
+    async init() {
         if (!this.token) {
             window.location.replace('/');
             return;
@@ -1799,7 +1640,255 @@ class LinksApp {
         
         this.setupEventListeners();
         this.showMainApp();
+        this.setupCategoryListeners();
+        this.loadCategories();
+        this.checkExtension();
         this.loadLinks();
+    }
+
+
+    setupCategoryListeners() {
+        // Toggle input
+        const addBtn = document.getElementById('addCategoryBtn');
+        const inputContainer = document.getElementById('newCategoryInputContainer');
+        const input = document.getElementById('newCategoryInput');
+        const submitBtn = document.getElementById('submitNewCategoryBtn');
+
+        if (addBtn && inputContainer && input) {
+            addBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Toggle visibility
+                const isHidden = inputContainer.style.display === 'none';
+                inputContainer.style.display = isHidden ? 'block' : 'none';
+                if (isHidden) {
+                    input.value = '';
+                    input.focus();
+                }
+            });
+
+            // Handle input submit
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.submitNewCategory(input.value);
+                } else if (e.key === 'Escape') {
+                    inputContainer.style.display = 'none';
+                    input.value = '';
+                }
+            });
+            
+            // Handle submit button click
+            if (submitBtn) {
+                submitBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.submitNewCategory(input.value);
+                });
+            }
+        }
+        
+        // Delegate delete category
+        const nav = document.getElementById('categoryNav');
+        if (nav) {
+            nav.addEventListener('click', (e) => {
+                if (e.target.classList.contains('delete-category-btn')) {
+                    e.stopPropagation();
+                    const id = e.target.dataset.id;
+                    this.handleDeleteCategory(id);
+                }
+            });
+        }
+    }
+
+    async loadCategories() {
+        try {
+            const response = await this.apiRequest('/api/categories');
+            const customCategories = (response && response.categories) ? response.categories : [];
+            
+            const defaults = [
+                { id: 'sports', name: 'Sports' },
+                { id: 'entertainment', name: 'Entertainment' },
+                { id: 'business', name: 'Business' },
+                { id: 'technology', name: 'Technology' },
+                { id: 'other', name: 'Other' }
+            ];
+
+            this.categories = [
+                ...defaults.map(c => ({ ...c, isCustom: false })),
+                ...customCategories.map(c => ({ ...c, isCustom: true }))
+            ];
+            
+            // Ensure unique by name to prevent duplicates if DB returns default names
+            const unique = [];
+            const seen = new Set();
+            for (const c of this.categories) {
+                if (!seen.has(c.name.toLowerCase())) {
+                    seen.add(c.name.toLowerCase());
+                    unique.push(c);
+                }
+            }
+            this.categories = unique;
+
+            this.renderCategories();
+        } catch (error) {
+            console.error('Failed to load categories', error);
+             this.categories = [
+                { id: 'sports', name: 'Sports' },
+                { id: 'entertainment', name: 'Entertainment' },
+                { id: 'business', name: 'Business' },
+                { id: 'technology', name: 'Technology' },
+                { id: 'other', name: 'Other' }
+            ];
+            this.renderCategories();
+        }
+    }
+
+    renderCategories() {
+        // 1. Sidebar Nav
+        const nav = document.getElementById('categoryNav');
+        if (nav) {
+            let html = \`
+                <button class="nav-item category-item \${this.categoryFilter === 'all' ? 'active' : ''}" data-category="all">
+                    All
+                </button>
+            \`;
+            
+            this.categories.forEach(cat => {
+                const isActive = this.categoryFilter === cat.name;
+                html += \`
+                    <button class="nav-item category-item \${isActive ? 'active' : ''}" data-category="\${cat.name}">
+                        \${cat.name}
+                        \${cat.isCustom ? \`<span class="delete-category-btn" data-id="\${cat.id}" title="Delete" style="margin-left:auto; opacity:0.5; font-size:16px; padding:0 4px;">×</span>\` : ''}
+                    </button>
+                \`;
+            });
+            nav.innerHTML = html;
+        }
+
+        // 2. Add Link Dropdown
+        const options = document.getElementById('categoryOptions');
+        if (options) {
+            options.innerHTML = this.categories.map(cat => 
+                \`<div class="custom-option" data-value="\${cat.name}">\${cat.name}</div>\`
+            ).join('');
+        }
+    }
+
+    // Deprecated in favor of inline input, kept as ref or removed
+    handleAddCategory() {
+        // No-op, handled by toggle
+    }
+
+    async submitNewCategory(name) {
+        if (!name || !name.trim()) return;
+
+        // Optimistic UI hide
+        const inputContainer = document.getElementById('newCategoryInputContainer');
+        if (inputContainer) inputContainer.style.display = 'none';
+        
+        // Reset input immediately
+        const input = document.getElementById('newCategoryInput');
+        if (input) input.value = '';
+
+        if (this.categories.some(c => c.name.toLowerCase() === name.trim().toLowerCase())) {
+            // Silently fail or log, no popup
+            console.log('Category exists');
+            return;
+        }
+
+        try {
+            const result = await this.apiRequest('/api/categories', {
+                method: 'POST',
+                body: JSON.stringify({ name: name.trim() })
+            });
+
+            if (result && result.success) {
+                // Manually add to list to ensure immediate display
+                // This bypasses potential fetch delays/caching issues
+                const newCat = {
+                    id: result.id,
+                    name: result.name || name.trim(),
+                    isCustom: true
+                };
+                
+                // Add if not exists
+                if (!this.categories.some(c => c.name.toLowerCase() === newCat.name.toLowerCase())) {
+                    this.categories.push(newCat);
+                }
+
+                this.renderCategories();
+                
+                // Still background refresh to be safe
+                this.loadCategories().catch(console.error);
+                
+            } else {
+                console.error('Failed to create category:', result);
+            }
+        } catch (e) {
+             console.error('Error creating category:', e);
+             // No error popup
+        }
+    }
+    
+    async handleDeleteCategory(id) {
+        if (!confirm('Delete this category? Links will remain but be uncategorized.')) return;
+        
+        try {
+             // We need to send { id } in body for DELETE? 
+             // Standard fetch DELETE with body works usually but some servers ignore it.
+             // My backend checks req.json().
+             const result = await this.apiRequest('/api/categories', {
+                method: 'DELETE',
+                body: JSON.stringify({ id })
+            });
+            
+             if (result.success) {
+                const catName = this.categories.find(c => c.id == id)?.name;
+                if (this.categoryFilter === catName) {
+                    this.categoryFilter = 'all';
+                    this.renderLinks();
+                }
+                this.loadCategories();
+            } else {
+                this.showStatus(result.error || 'Failed to delete', 'error');
+            }
+        } catch(e) {
+            this.showStatus('Error deleting category', 'error');
+        }
+    }
+
+    checkExtension() {
+        setTimeout(() => {
+            const isInstalled = document.documentElement.dataset.extensionInstalled === 'true';
+            if (!isInstalled) {
+                const promo = document.getElementById('extensionPromo');
+                if (promo) {
+                    promo.style.display = 'block';
+                    promo.classList.remove('sidebar-card');
+                    promo.style.background = 'transparent';
+                    promo.style.border = 'none';
+                    promo.style.padding = '0';
+                    promo.style.marginTop = '24px';
+
+                    const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+                    
+                    const chromeUrl = "https://chrome.google.com/webstore/detail/kurate/akbifaapjhdkeknembooeihedinecbfi";
+                    const firefoxUrl = "https://addons.mozilla.org/en-US/firefox/addon/kurate/";
+                    
+                    const targetUrl = isFirefox ? firefoxUrl : chromeUrl;
+                    const iconSrc = isFirefox ? "/Firefox_logo,_2019.svg.png" : "/Google_Chrome_icon_(February_2022).svg.webp";
+                    const text = isFirefox ? "Firefox Extension" : "Chrome Extension";
+
+                    promo.innerHTML = \`
+                        <a href="\${targetUrl}" target="_blank" class="extension-pill">
+                            <div class="extension-icon-wrapper">
+                                <img src="\${iconSrc}" alt="\${text}">
+                            </div>
+                            <span class="extension-text">\${text}</span>
+                        </a>
+                    \`;
+                }
+            }
+        }, 1000);
     }
 
     setupRouting() {
@@ -2030,20 +2119,11 @@ class LinksApp {
         this.showMainAppSync();
         await this.loadLinks();
         
-        // Preload recommended articles in background and populate sidebar
+        // Preload recommended articles in background (reduces latency when opening modal)
         this.preloadRecommendedArticles();
     }
 
     async preloadRecommendedArticles() {
-        // Check localStorage cache first (15 min TTL)
-        try {
-            const cached = JSON.parse(localStorage.getItem('recArticlesCache'));
-            if (cached && cached.ts && (Date.now() - cached.ts < 15 * 60 * 1000) && cached.articles && cached.articles.length > 0) {
-                this.recommendedArticles = cached.articles;
-                this.renderSidebarRecommended();
-                return;
-            }
-        } catch (e) {}
         // Don't block - just preload in background
         try {
             await this.loadRecommendedArticles(true);
@@ -2063,11 +2143,10 @@ class LinksApp {
     async handlePasswordReset(event) {
         event.preventDefault();
         const username = document.getElementById('resetUsername').value;
-        const currentPassword = document.getElementById('currentPassword').value;
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
-        if (!username || !currentPassword || !newPassword || !confirmPassword) {
+        if (!username || !newPassword || !confirmPassword) {
             this.showStatus('Please fill in all fields', 'error');
             return;
         }
@@ -2085,7 +2164,7 @@ class LinksApp {
         try {
             const result = await this.apiRequest('/auth/reset-password', {
                 method: 'POST',
-                body: JSON.stringify({ username, currentPassword, newPassword })
+                body: JSON.stringify({ username, newPassword })
             });
 
             if (result && result.success) {
@@ -2189,32 +2268,31 @@ class LinksApp {
             linkUrlInput.addEventListener('change', handleUrlUpdate); // Fallback for manual entry
         }
 
-        // Sidebar Recommended Reading Filter Buttons
-        const sidebarFilters = document.getElementById('sidebarFilters');
-        if (sidebarFilters) {
-            sidebarFilters.addEventListener('click', (e) => {
-                if (e.target.classList.contains('recommended-filter')) {
-                    sidebarFilters.querySelectorAll('.recommended-filter').forEach(b => b.classList.remove('active'));
-                    e.target.classList.add('active');
-                    this.filterSidebarRecommended(e.target.dataset.category);
-                }
+        // Recommended Reading Button
+        const openRecommendedBtn = document.getElementById('openRecommendedBtn');
+        if (openRecommendedBtn) {
+            openRecommendedBtn.addEventListener('click', () => {
+                this._s('click_recommended_reading');
+                this.openRecommendedPortal();
             });
         }
 
-        // Close modals/drawers on Escape key
+        // Recommended Reading Filter Buttons
+        const filterButtons = document.querySelectorAll('.recommended-filter');
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                filterButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                this.filterRecommendedArticles(e.target.dataset.source);
+            });
+        });
+
+        // Close modal on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const addLinkModalEl = document.getElementById('addLinkModal');
-                if (addLinkModalEl && !addLinkModalEl.classList.contains('hidden')) {
-                    this.closeAddLinkModal();
-                }
-                const sidebar = document.querySelector('.sidebar-left');
-                if (sidebar && sidebar.classList.contains('drawer-open')) {
-                    this.toggleDrawer();
-                }
-                const mobileAddLinkModal = document.getElementById('mobileAddLinkModal');
-                if (mobileAddLinkModal && mobileAddLinkModal.classList.contains('active')) {
-                    this.toggleMobileAddLink();
+                const modal = document.getElementById('recommendedModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    this.closeRecommendedPortal();
                 }
             }
         });        // Delegation for dynamic elements
@@ -2243,7 +2321,6 @@ class LinksApp {
 
         this.setupCustomDropdown();
         this.setupSearchAndFilter();
-        this.setupMobileFormListeners();
     }
 
     setupSearchAndFilter() {
@@ -2311,116 +2388,13 @@ class LinksApp {
         });
     }
 
-    // ===== Mobile Navigation =====
-    toggleDrawer() {
-        const sidebar = document.querySelector('.sidebar-left');
-        const backdrop = document.getElementById('drawerBackdrop');
-        if (!sidebar || !backdrop) return;
-
-        const isOpen = sidebar.classList.contains('drawer-open');
-        if (isOpen) {
-            sidebar.classList.remove('drawer-open');
-            backdrop.classList.remove('active');
-        } else {
-            sidebar.classList.add('drawer-open');
-            backdrop.classList.add('active');
-        }
-    }
-
-    toggleMobileAddLink() {
-        const modal = document.getElementById('mobileAddLinkModal');
-        if (!modal) return;
-
-        const isActive = modal.classList.contains('active');
-        if (isActive) {
-            modal.classList.remove('active');
-        } else {
-            modal.classList.add('active');
-            this.setupMobileDropdown();
-        }
-    }
-
-    setupMobileDropdown() {
-        const trigger = document.getElementById('mobileCategoryTrigger');
-        const options = document.getElementById('mobileCategoryOptions');
-        const hiddenInput = document.getElementById('mobileLinkCategory');
-        const triggerText = document.getElementById('mobileCategoryText');
-
-        if (!trigger || !options || trigger._mobileSetup) return;
-        trigger._mobileSetup = true;
-
-        trigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            options.classList.toggle('open');
-        });
-
-        options.addEventListener('click', (e) => {
-            const option = e.target.closest('.custom-option');
-            if (option) {
-                hiddenInput.value = option.dataset.value;
-                triggerText.textContent = option.textContent;
-                triggerText.style.color = 'var(--text-main)';
-                options.classList.remove('open');
-            }
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!trigger.contains(e.target) && !options.contains(e.target)) {
-                options.classList.remove('open');
-            }
-        });
-    }
-
-    setupMobileFormListeners() {
-        const mobileForm = document.getElementById('mobileAddLinkForm');
-        if (mobileForm && !mobileForm._setup) {
-            mobileForm._setup = true;
-            mobileForm.addEventListener('submit', (e) => {
-                this.handleMobileAddLink(e);
-            });
-        }
-    }
-
-    async handleMobileAddLink(event) {
-        event.preventDefault();
-
-        const urlInput = document.getElementById('mobileLinkUrl');
-        const categoryInput = document.getElementById('mobileLinkCategory');
-
-        const url = urlInput ? urlInput.value.trim() : '';
-        const category = categoryInput ? categoryInput.value : 'general';
-
-        if (!url) {
-            this.showStatus('URL is required', 'error');
-            return;
-        }
-
-        // Clear mobile form
-        if (urlInput) urlInput.value = '';
-        if (categoryInput) categoryInput.value = '';
-        const mobileCategoryText = document.getElementById('mobileCategoryText');
-        if (mobileCategoryText) mobileCategoryText.textContent = 'Select Category';
-
-        this.toggleMobileAddLink();
-
-        try {
-            await this.apiRequest('/links', {
-                method: 'POST',
-                body: JSON.stringify({ url, title: '', category })
-            });
-            await this.loadLinks(true);
-        } catch (error) {
-            await this.loadLinks(true);
-        }
-    }
-
     async handleAddLink(event) {
         event.preventDefault();
-
+        
         const urlInput = document.getElementById('linkUrl');
         const titleInput = document.getElementById('linkTitle');
         const categoryInput = document.getElementById('linkCategory');
-
+        
         const url = urlInput ? urlInput.value.trim() : '';
         const title = titleInput ? titleInput.value.trim() : '';
         const category = categoryInput ? categoryInput.value : 'general';
@@ -2431,7 +2405,6 @@ class LinksApp {
         }
 
         this.clearAddLinkForm();
-        this.closeAddLinkModal();
         try {
             await this.apiRequest('/links', {
                 method: 'POST',
@@ -2658,12 +2631,6 @@ switchTab(tab) {
     document.getElementById('readTab').classList.toggle('active', tab === 'read');
     document.getElementById('favoritesTab').classList.toggle('active', tab === 'favorites');
 
-    // Close mobile drawer if open
-    const sidebar = document.querySelector('.sidebar-left');
-    if (sidebar && sidebar.classList.contains('drawer-open')) {
-        this.toggleDrawer();
-    }
-
     this.renderLinks();
 }
 
@@ -2692,76 +2659,31 @@ switchTab(tab) {
 }
 
 // ==========================================
-// Add Link Modal (Desktop)
+// Recommended Reading Portal
 // ==========================================
 
-openAddLinkModal() {
-    const modal = document.getElementById('addLinkModal');
+openRecommendedPortal() {
+    const modal = document.getElementById('recommendedModal');
     if (modal) {
         modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        const urlInput = modal.querySelector('#linkUrl');
-        if (urlInput) urlInput.focus();
+        document.body.style.overflow = 'hidden'; // Prevent background scroll
+        
+        // Use cached articles if available, otherwise fetch
+        if (this.recommendedArticles && this.recommendedArticles.length > 0) {
+            this.renderRecommendedArticles();
+            // Optionally refresh in background if it's been a while
+        } else {
+            this.loadRecommendedArticles();
+        }
     }
 }
 
-closeAddLinkModal() {
-    const modal = document.getElementById('addLinkModal');
+closeRecommendedPortal() {
+    const modal = document.getElementById('recommendedModal');
     if (modal) {
         modal.classList.add('hidden');
-        document.body.style.overflow = '';
+        document.body.style.overflow = ''; // Restore scroll
     }
-}
-
-// ==========================================
-// Sidebar Recommended Reading
-// ==========================================
-
-renderSidebarRecommended() {
-    const container = document.getElementById('recommendedSidebarArticles');
-    if (!container) return;
-
-    let articlesToShow = this.recommendedArticles || [];
-
-    if (this.currentRecommendedFilter && this.currentRecommendedFilter !== 'all') {
-        articlesToShow = articlesToShow.filter(
-            a => a.category === this.currentRecommendedFilter
-        );
-    }
-
-    if (articlesToShow.length === 0) {
-        container.innerHTML = \`
-            <div class="recommended-empty">
-                <div class="recommended-empty-icon">📭</div>
-                <p>No articles found. Try a different filter or check back later.</p>
-            </div>
-        \`;
-        return;
-    }
-
-    container.innerHTML = articlesToShow.map(article => {
-        const timeAgo = this.getTimeAgo(article.pubDate);
-        return \`
-            <article class="recommended-sidebar-article" onclick="window.open('\${article.url}', '_blank')">
-                <div class="recommended-article-source">
-                    <span class="recommended-article-source-badge">\${article.source}</span>
-                    <span class="recommended-article-date">\${timeAgo}</span>
-                </div>
-                <h3 class="recommended-article-title">\${this.escapeHtml(article.title)}</h3>
-                <div class="recommended-article-footer">
-                    <span class="recommended-article-domain">\${article.domain}</span>
-                    <button class="recommended-save-btn" onclick="event.stopPropagation(); window.app.saveRecommendedArticle('\${this.escapeHtml(article.url)}', '\${this.escapeHtml(article.title)}', '\${article.category}', this)">
-                        Curate
-                    </button>
-                </div>
-            </article>
-        \`;
-    }).join('');
-}
-
-filterSidebarRecommended(category) {
-    this.currentRecommendedFilter = category;
-    this.renderSidebarRecommended();
 }
 
 async loadRecommendedArticles(silent = false) {
@@ -2771,145 +2693,22 @@ async loadRecommendedArticles(silent = false) {
     }
 
     this.currentRecommendedFilter = 'all';
-
-    const container = document.getElementById('recommendedSidebarArticles');
-
+    
+    const container = document.getElementById('recommendedArticles');
+    
     // Only show loading UI if not silent and container exists
     if (!silent && container) {
         container.innerHTML = \`
             <div class="recommended-loading">
                 <div class="loading-spinner"></div>
-                <p>Loading articles...</p>
+                <p>Loading trending articles...</p>
             </div>
         \`;
     }
 
     // RSS Feed sources - highly reliable verified feeds
-    const feeds = [
-        // Sports
-        { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
-        { name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'sports' },
-        { name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', category: 'sports' },
-        
-        // Entertainment
-        { name: 'Variety', url: 'https://variety.com/feed/', category: 'entertainment' },
-        { name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', category: 'entertainment' },
-        { name: 'Deadline', url: 'https://deadline.com/feed/', category: 'entertainment' },
-        
-        // Business
-        { name: 'Harvard Business Review', url: 'https://hbr.org/feed', category: 'business' },
-        { name: 'Entrepreneur', url: 'https://www.entrepreneur.com/latest.rss', category: 'business' },
-        { name: 'Fortune', url: 'https://fortune.com/feed/', category: 'business' },
-        
-        // Technology
-        { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'technology' },
-        { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'technology' },
-        { name: 'Hacker News', url: 'https://hnrss.org/frontpage', category: 'technology' },
-        { name: 'Engadget', url: 'https://www.engadget.com/rss.xml', category: 'technology' },
-        { name: 'Scour', url: 'https://scour.ing/nrame/rss.xml', category: 'technology' },
-        { name: 'simonwillison.net', url: 'https://simonwillison.net/atom/everything/', category: 'technology' },
-        { name: 'jeffgeerling.com', url: 'https://www.jeffgeerling.com/blog.xml', category: 'technology' },
-        { name: 'seangoedecke.com', url: 'https://www.seangoedecke.com/rss.xml', category: 'technology' },
-        { name: 'krebsonsecurity.com', url: 'https://krebsonsecurity.com/feed/', category: 'technology' },
-        { name: 'daringfireball.net', url: 'https://daringfireball.net/feeds/main', category: 'technology' },
-        { name: 'ericmigi.com', url: 'https://ericmigi.com/rss.xml', category: 'technology' },
-        { name: 'antirez.com', url: 'http://antirez.com/rss', category: 'technology' },
-        { name: 'idiallo.com', url: 'https://idiallo.com/feed.rss', category: 'technology' },
-        { name: 'maurycyz.com', url: 'https://maurycyz.com/index.xml', category: 'technology' },
-        { name: 'pluralistic.net', url: 'https://pluralistic.net/feed/', category: 'technology' },
-        { name: 'shkspr.mobi', url: 'https://shkspr.mobi/blog/feed/', category: 'technology' },
-        { name: 'lcamtuf.substack.com', url: 'https://lcamtuf.substack.com/feed', category: 'technology' },
-        { name: 'mitchellh.com', url: 'https://mitchellh.com/feed.xml', category: 'technology' },
-        { name: 'dynomight.net', url: 'https://dynomight.net/feed.xml', category: 'technology' },
-        { name: 'utcc.utoronto.ca/~cks', url: 'https://utcc.utoronto.ca/~cks/space/blog/?atom', category: 'technology' },
-        { name: 'xeiaso.net', url: 'https://xeiaso.net/blog.rss', category: 'technology' },
-        { name: 'devblogs.microsoft.com/oldnewthing', url: 'https://devblogs.microsoft.com/oldnewthing/feed', category: 'technology' },
-        { name: 'righto.com', url: 'https://www.righto.com/feeds/posts/default', category: 'technology' },
-        { name: 'lucumr.pocoo.org', url: 'https://lucumr.pocoo.org/feed.atom', category: 'technology' },
-        { name: 'skyfall.dev', url: 'https://skyfall.dev/rss.xml', category: 'technology' },
-        { name: 'garymarcus.substack.com', url: 'https://garymarcus.substack.com/feed', category: 'technology' },
-        { name: 'rachelbythebay.com', url: 'https://rachelbythebay.com/w/atom.xml', category: 'technology' },
-        { name: 'overreacted.io', url: 'https://overreacted.io/rss.xml', category: 'technology' },
-        { name: 'timsh.org', url: 'https://timsh.org/rss/', category: 'technology' },
-        { name: 'johndcook.com', url: 'https://www.johndcook.com/blog/feed/', category: 'technology' },
-        { name: 'gilesthomas.com', url: 'https://gilesthomas.com/feed/rss.xml', category: 'technology' },
-        { name: 'matklad.github.io', url: 'https://matklad.github.io/feed.xml', category: 'technology' },
-        { name: 'derekthompson.org', url: 'https://www.theatlantic.com/feed/author/derek-thompson/', category: 'technology' },
-        { name: 'evanhahn.com', url: 'https://evanhahn.com/feed.xml', category: 'technology' },
-        { name: 'terriblesoftware.org', url: 'https://terriblesoftware.org/feed/', category: 'technology' },
-        { name: 'rakhim.exotext.com', url: 'https://rakhim.exotext.com/rss.xml', category: 'technology' },
-        { name: 'joanwestenberg.com', url: 'https://joanwestenberg.com/rss', category: 'technology' },
-        { name: 'xania.org', url: 'https://xania.org/feed', category: 'technology' },
-        { name: 'micahflee.com', url: 'https://micahflee.com/feed/', category: 'technology' },
-        { name: 'nesbitt.io', url: 'https://nesbitt.io/feed.xml', category: 'technology' },
-        { name: 'construction-physics.com', url: 'https://www.construction-physics.com/feed', category: 'technology' },
-        { name: 'tedium.co', url: 'https://feed.tedium.co/', category: 'technology' },
-        { name: 'susam.net', url: 'https://susam.net/feed.xml', category: 'technology' },
-        { name: 'entropicthoughts.com', url: 'https://entropicthoughts.com/feed.xml', category: 'technology' },
-        { name: 'buttondown.com/hillelwayne', url: 'https://buttondown.com/hillelwayne/rss', category: 'technology' },
-        { name: 'dwarkesh.com', url: 'https://www.dwarkeshpatel.com/feed', category: 'technology' },
-        { name: 'borretti.me', url: 'https://borretti.me/feed.xml', category: 'technology' },
-        { name: 'wheresyoured.at', url: 'https://www.wheresyoured.at/rss/', category: 'technology' },
-        { name: 'jayd.ml', url: 'https://jayd.ml/feed.xml', category: 'technology' },
-        { name: 'minimaxir.com', url: 'https://minimaxir.com/index.xml', category: 'technology' },
-        { name: 'geohot.github.io', url: 'https://geohot.github.io/blog/feed.xml', category: 'technology' },
-        { name: 'paulgraham.com', url: 'http://www.aaronsw.com/2002/feeds/pgessays.rss', category: 'technology' },
-        { name: 'filfre.net', url: 'https://www.filfre.net/feed/', category: 'technology' },
-        { name: 'blog.jim-nielsen.com', url: 'https://blog.jim-nielsen.com/feed.xml', category: 'technology' },
-        { name: 'dfarq.homeip.net', url: 'https://dfarq.homeip.net/feed/', category: 'technology' },
-        { name: 'jyn.dev', url: 'https://jyn.dev/atom.xml', category: 'technology' },
-        { name: 'geoffreylitt.com', url: 'https://www.geoffreylitt.com/feed.xml', category: 'technology' },
-        { name: 'downtowndougbrown.com', url: 'https://www.downtowndougbrown.com/feed/', category: 'technology' },
-        { name: 'brutecat.com', url: 'https://brutecat.com/rss.xml', category: 'technology' },
-        { name: 'eli.thegreenplace.net', url: 'https://eli.thegreenplace.net/feeds/all.atom.xml', category: 'technology' },
-        { name: 'abortretry.fail', url: 'https://www.abortretry.fail/feed', category: 'technology' },
-        { name: 'fabiensanglard.net', url: 'https://fabiensanglard.net/rss.xml', category: 'technology' },
-        { name: 'oldvcr.blogspot.com', url: 'https://oldvcr.blogspot.com/feeds/posts/default', category: 'technology' },
-        { name: 'bogdanthegeek.github.io', url: 'https://bogdanthegeek.github.io/blog/index.xml', category: 'technology' },
-        { name: 'hugotunius.se', url: 'https://hugotunius.se/feed.xml', category: 'technology' },
-        { name: 'gwern.net', url: 'https://gwern.substack.com/feed', category: 'technology' },
-        { name: 'berthub.eu', url: 'https://berthub.eu/articles/index.xml', category: 'technology' },
-        { name: 'chadnauseam.com', url: 'https://chadnauseam.com/rss.xml', category: 'technology' },
-        { name: 'simone.org', url: 'https://simone.org/feed/', category: 'technology' },
-        { name: 'it-notes.dragas.net', url: 'https://it-notes.dragas.net/feed/', category: 'technology' },
-        { name: 'beej.us', url: 'https://beej.us/blog/rss.xml', category: 'technology' },
-        { name: 'hey.paris', url: 'https://hey.paris/index.xml', category: 'technology' },
-        { name: 'danielwirtz.com', url: 'https://danielwirtz.com/rss.xml', category: 'technology' },
-        { name: 'matduggan.com', url: 'https://matduggan.com/rss/', category: 'technology' },
-        { name: 'refactoringenglish.com', url: 'https://refactoringenglish.com/index.xml', category: 'technology' },
-        { name: 'worksonmymachine.substack.com', url: 'https://worksonmymachine.substack.com/feed', category: 'technology' },
-        { name: 'philiplaine.com', url: 'https://philiplaine.com/index.xml', category: 'technology' },
-        { name: 'steveblank.com', url: 'https://steveblank.com/feed/', category: 'technology' },
-        { name: 'bernsteinbear.com', url: 'https://bernsteinbear.com/feed.xml', category: 'technology' },
-        { name: 'danieldelaney.net', url: 'https://danieldelaney.net/feed', category: 'technology' },
-        { name: 'troyhunt.com', url: 'https://www.troyhunt.com/rss/', category: 'technology' },
-        { name: 'herman.bearblog.dev', url: 'https://herman.bearblog.dev/feed/', category: 'technology' },
-        { name: 'tomrenner.com', url: 'https://tomrenner.com/index.xml', category: 'technology' },
-        { name: 'blog.pixelmelt.dev', url: 'https://blog.pixelmelt.dev/rss/', category: 'technology' },
-        { name: 'martinalderson.com', url: 'https://martinalderson.com/feed.xml', category: 'technology' },
-        { name: 'danielchasehooper.com', url: 'https://danielchasehooper.com/feed.xml', category: 'technology' },
-        { name: 'chiark.greenend.org.uk/~sgtatham', url: 'https://www.chiark.greenend.org.uk/~sgtatham/quasiblog/feed.xml', category: 'technology' },
-        { name: 'grantslatton.com', url: 'https://grantslatton.com/rss.xml', category: 'technology' },
-        { name: 'experimental-history.com', url: 'https://www.experimental-history.com/feed', category: 'technology' },
-        { name: 'anildash.com', url: 'https://anildash.com/feed.xml', category: 'technology' },
-        { name: 'aresluna.org', url: 'https://aresluna.org/main.rss', category: 'technology' },
-        { name: 'michael.stapelberg.ch', url: 'https://michael.stapelberg.ch/feed.xml', category: 'technology' },
-        { name: 'miguelgrinberg.com', url: 'https://blog.miguelgrinberg.com/feed', category: 'technology' },
-        { name: 'keygen.sh', url: 'https://keygen.sh/blog/feed.xml', category: 'technology' },
-        { name: 'mjg59.dreamwidth.org', url: 'https://mjg59.dreamwidth.org/data/rss', category: 'technology' },
-        { name: 'computer.rip', url: 'https://computer.rip/rss.xml', category: 'technology' },
-        { name: 'tedunangst.com', url: 'https://www.tedunangst.com/flak/rss', category: 'technology' },
-        
-        // Education
-        { name: 'EdSurge', url: 'https://www.edsurge.com/articles_rss', category: 'education' },
-        { name: 'Open Culture', url: 'https://www.openculture.com/feed', category: 'education' },
-        { name: 'Edutopia', url: 'https://www.edutopia.org/rss.xml', category: 'education' },
-        
-        // Other
-        { name: 'Lifehacker', url: 'https://lifehacker.com/rss', category: 'other' },
-        { name: 'Smithsonian', url: 'https://www.smithsonianmag.com/rss/latest_articles/', category: 'other' },
-        { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', category: 'other' }
-    ];
+    const feeds = ${JSON.stringify(RSS_FEEDS)};
+
 
     const allArticles = [];
     const fourteenDaysAgo = new Date();
@@ -2974,12 +2773,9 @@ async loadRecommendedArticles(silent = false) {
             return true;
         });
 
-        // Cache to localStorage
-        try {
-            localStorage.setItem('recArticlesCache', JSON.stringify({ ts: Date.now(), articles: this.recommendedArticles }));
-        } catch (e) {}
-
-        this.renderSidebarRecommended();
+        if (container) {
+            this.renderRecommendedArticles();
+        }
     } catch (err) {
         console.error('Failed to load recommended articles:', err);
     }
@@ -3006,6 +2802,55 @@ stripHtml(html) {
         div.textContent = str;
         return div.innerHTML;
     }
+
+filterRecommendedArticles(category) {
+    this.currentRecommendedFilter = category;
+    this.renderRecommendedArticles();
+}
+
+renderRecommendedArticles() {
+    const container = document.getElementById('recommendedArticles');
+    if (!container) return;
+
+    let articlesToShow = this.recommendedArticles;
+
+    // Apply filter
+    if (this.currentRecommendedFilter !== 'all') {
+        articlesToShow = this.recommendedArticles.filter(
+            a => a.category === this.currentRecommendedFilter
+        );
+    }
+
+    if (articlesToShow.length === 0) {
+        container.innerHTML = \`
+            <div class="recommended-empty">
+                <div class="recommended-empty-icon">📭</div>
+                <p>No articles found. Try a different filter or check back later.</p>
+            </div>
+        \`;
+        return;
+    }
+
+    container.innerHTML = articlesToShow.map(article => {
+        const timeAgo = this.getTimeAgo(article.pubDate);
+        return \`
+            <article class="recommended-article" onclick="window.open('\${article.url}', '_blank')">
+                <div class="recommended-article-source">
+                    <span class="recommended-article-source-badge">\${article.source}</span>
+                    <span class="recommended-article-date">\${timeAgo}</span>
+                </div>
+                <h3 class="recommended-article-title">\${this.escapeHtml(article.title)}</h3>
+                <p class="recommended-article-desc">\${this.escapeHtml(article.description)}</p>
+                <div class="recommended-article-footer">
+                    <span class="recommended-article-domain">\${article.domain}</span>
+                    <button class="recommended-save-btn" onclick="event.stopPropagation(); window.app.saveRecommendedArticle('\${this.escapeHtml(article.url)}', '\${this.escapeHtml(article.title)}', '\${article.category}', this)">
+                        Curate
+                    </button>
+                </div>
+            </article>
+        \`;
+    }).join('');
+}
 
 getTimeAgo(date) {
     const now = new Date();
@@ -3297,6 +3142,12 @@ function getLandingHTML() {
                                                                                                                                             class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
                                                                                                                                             placeholder="Enter your username" required>
                                                                                                                                     </div>
+                                                                                                                                    <div id="emailContainer" class="hidden">
+                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Email</label>
+                                                                                                                                        <input type="email" id="modalEmail"
+                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
+                                                                                                                                            placeholder="Enter your email">
+                                                                                                                                    </div>
                                                                                                                                     <div>
                                                                                                                                         <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Password</label>
                                                                                                                                         <input type="password" id="modalPassword"
@@ -3340,12 +3191,6 @@ function getLandingHTML() {
                                                                                                                                         <input type="text" id="resetUsername"
                                                                                                                                             class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
                                                                                                                                             placeholder="Enter your username" required>
-                                                                                                                                    </div>
-                                                                                                                                    <div>
-                                                                                                                                        <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">Current Password</label>
-                                                                                                                                        <input type="password" id="currentPassword"
-                                                                                                                                            class="w-full px-5 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#D2622A]/20 focus:border-[#D2622A] transition-all bg-gray-50 placeholder-gray-400"
-                                                                                                                                            placeholder="Enter current password" required>
                                                                                                                                     </div>
                                                                                                                                     <div>
                                                                                                                                         <label class="block text-sm font-medium text-gray-700 mb-1.5 ml-1">New Password</label>
@@ -3568,6 +3413,7 @@ function getLandingHTML() {
                                                                                                                 const toggleText = document.getElementById('modalToggleText');
                                                                                                                 const toggleLink = document.getElementById('modalToggleLink');
                                                                                                                 const errorDiv = document.getElementById('authError');
+                                                                                                                const emailContainer = document.getElementById('emailContainer');
 
                                                                                                                 errorDiv.classList.add('hidden');
 
@@ -3577,19 +3423,24 @@ function getLandingHTML() {
                                                                                                                 submitText.textContent = 'Sign In';
                                                                                                                 toggleText.textContent = "Don't have an account?";
                                                                                                                 toggleLink.textContent = 'Join kurate';
-            } else {
+                                                                                                                emailContainer.classList.add('hidden');
+                                                                                                                document.getElementById('modalEmail').required = false;
+                                                                                                                } else {
                                                                                                                     title.textContent = 'Join kurate';
                                                                                                                 subtitle.textContent = '';
                                                                                                                 submitText.textContent = 'Join kurate';
                                                                                                                 toggleText.textContent = 'Already have an account?';
                                                                                                                 toggleLink.textContent = 'Sign in';
-            }
+                                                                                                                emailContainer.classList.remove('hidden');
+                                                                                                                document.getElementById('modalEmail').required = true;
+                                                                                                                }
         }
 
                                                                                                                 async function handleAuthSubmit(e) {
                                                                                                                     e.preventDefault();
                                                                                                                 const username = document.getElementById('modalUsername').value;
                                                                                                                 const password = document.getElementById('modalPassword').value;
+                                                                                                                const email = document.getElementById('modalEmail').value;
                                                                                                                 const errorDiv = document.getElementById('authError');
 
                                                                                                                 errorDiv.classList.add('hidden');
@@ -3600,7 +3451,7 @@ function getLandingHTML() {
                 const response = await fetch(endpoint, {
                                                                                                                     method: 'POST',
                                                                                                                 headers: {'Content-Type': 'application/json' },
-                                                                                                                body: JSON.stringify({username, password})
+                                                                                                                body: JSON.stringify({username, password, email})
                 });
 
                                                                                                                 const data = await response.json();
@@ -3621,7 +3472,6 @@ function getLandingHTML() {
                                                                                                                 async function handleResetSubmit(e) {
                                                                                                                     e.preventDefault();
                                                                                                                 const username = document.getElementById('resetUsername').value;
-                                                                                                                const currentPassword = document.getElementById('currentPassword').value;
                                                                                                                 const newPassword = document.getElementById('newPassword').value;
                                                                                                                 const confirmPassword = document.getElementById('confirmPassword').value;
                                                                                                                 const errorDiv = document.getElementById('resetError');
@@ -3629,12 +3479,6 @@ function getLandingHTML() {
 
                                                                                                                 errorDiv.classList.add('hidden');
                                                                                                                 successDiv.classList.add('hidden');
-
-                                                                                                                if (!currentPassword) {
-                                                                                                                    errorDiv.textContent = "Current password is required";
-                                                                                                                errorDiv.classList.remove('hidden');
-                                                                                                                return;
-            }
 
                                                                                                                 if (newPassword !== confirmPassword) {
                                                                                                                     errorDiv.textContent = "Passwords don't match";
@@ -3646,7 +3490,7 @@ function getLandingHTML() {
                 const response = await fetch('/api/auth/reset-password', {
                                                                                                                     method: 'POST',
                                                                                                                 headers: {'Content-Type': 'application/json' },
-                                                                                                                body: JSON.stringify({username, currentPassword, newPassword})
+                                                                                                                body: JSON.stringify({username, newPassword})
                 });
 
                                                                                                                 const data = await response.json();
@@ -3703,1702 +3547,4 @@ function getLandingHTML() {
 }
 
 
-// ==================== MOBILE VERSIONS ====================
-
-function getMobileLandingHTML() {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>kurate - for the curious</title>
-    <link rel="icon" type="image/png" href="/favicon.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #D2622A;
-            --primary-light: #FFEDD5;
-            --bg: #FDFAF8;
-            --text-primary: #1C1917;
-            --text-secondary: #4B5563;
-            --text-tertiary: #9CA3AF;
-            --border: #E5E7EB;
-            --white: #FFFFFF;
-            --error: #EF4444;
-            --success: #10B981;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background: var(--bg);
-            color: var(--text-primary);
-            -webkit-font-smoothing: antialiased;
-            min-height: 100vh;
-            min-height: 100dvh;
-            display: flex;
-            flex-direction: column;
-        }
-        .m-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 60px 32px 32px;
-            max-width: 480px;
-            margin: 0 auto;
-            width: 100%;
-        }
-        .m-logo {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 32px;
-        }
-        .m-logo-icon {
-            width: 24px; height: 24px;
-            background: #000;
-            border-radius: 12px;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 700;
-        }
-        .m-logo-text {
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-        .m-headline {
-            font-size: 24px;
-            font-weight: 700;
-            line-height: 32px;
-            margin-bottom: 20px;
-        }
-        .m-headline-accent { color: var(--primary); }
-        .m-marketing {
-            margin-bottom: 32px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .m-marketing p {
-            font-size: 14px;
-            color: var(--text-secondary);
-            line-height: 20px;
-        }
-        .m-marketing em {
-            font-weight: 700;
-            font-style: italic;
-        }
-        .m-form-group {
-            margin-bottom: 20px;
-        }
-        .m-label {
-            display: block;
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text-primary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 8px;
-            margin-left: 4px;
-        }
-        .m-input {
-            width: 100%;
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 16px;
-            font-size: 16px;
-            font-family: inherit;
-            color: var(--text-primary);
-            -webkit-appearance: none;
-        }
-        .m-input::placeholder { color: var(--text-tertiary); }
-        .m-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(210, 98, 42, 0.1);
-        }
-        .m-btn {
-            width: 100%;
-            background: var(--primary);
-            color: var(--white);
-            border: none;
-            padding: 18px;
-            border-radius: 100px;
-            font-size: 16px;
-            font-weight: 700;
-            font-family: inherit;
-            cursor: pointer;
-            margin-top: 10px;
-            box-shadow: 0 4px 8px rgba(210, 98, 42, 0.2);
-        }
-        .m-btn:active { opacity: 0.9; transform: scale(0.99); }
-        .m-footer {
-            margin-top: 24px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .m-footer-text {
-            font-size: 14px;
-            color: var(--text-secondary);
-        }
-        .m-footer-link {
-            color: var(--primary);
-            font-weight: 700;
-            background: none;
-            border: none;
-            font-size: inherit;
-            font-family: inherit;
-            cursor: pointer;
-        }
-        .m-forgot {
-            font-size: 13px;
-            color: var(--text-tertiary);
-            font-weight: 500;
-            background: none;
-            border: none;
-            font-family: inherit;
-            cursor: pointer;
-        }
-        .m-error {
-            display: none;
-            margin-top: 12px;
-            text-align: center;
-            color: var(--error);
-            font-size: 14px;
-        }
-        .m-error.visible { display: block; }
-        .m-success {
-            display: none;
-            margin-top: 12px;
-            text-align: center;
-            color: var(--success);
-            font-size: 14px;
-        }
-        .m-success.visible { display: block; }
-        /* Reset password view */
-        .m-view { display: none; }
-        .m-view.active { display: block; }
-        .m-reset-title {
-            font-size: 24px;
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 8px;
-        }
-        .m-reset-subtitle {
-            font-size: 15px;
-            color: var(--text-secondary);
-            text-align: center;
-            margin-bottom: 40px;
-            line-height: 22px;
-        }
-        .m-back-link {
-            margin-top: 32px;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <!-- Auth View -->
-    <div id="authView" class="m-view active">
-        <div class="m-container">
-            <div class="m-logo">
-                <div class="m-logo-icon">K</div>
-                <span class="m-logo-text">kurate</span>
-            </div>
-            <h1 class="m-headline">
-                Your personal library of ideas from across the web.
-                <span class="m-headline-accent">You are the curator.</span>
-            </h1>
-            <div class="m-marketing">
-                <p><em>kurate</em> is your personal library for collecting and organizing the best content from across the web.</p>
-                <p>Save articles, videos, and podcasts in one beautiful, simplified space.</p>
-            </div>
-            <form id="authForm" onsubmit="handleAuth(event)">
-                <div class="m-form-group">
-                    <label class="m-label">Username</label>
-                    <input type="text" id="authUsername" class="m-input" placeholder="Enter your username" required autocomplete="off" autocapitalize="off">
-                </div>
-                <div class="m-form-group">
-                    <label class="m-label">Password</label>
-                    <input type="password" id="authPassword" class="m-input" placeholder="Enter your password" required>
-                </div>
-                <div id="authError" class="m-error"></div>
-                <button type="submit" class="m-btn" id="authBtn">Start Curating</button>
-            </form>
-            <div class="m-footer">
-                <div class="m-footer-text">
-                    <span id="toggleText">Don't have an account?</span>
-                    <button class="m-footer-link" id="toggleLink" onclick="toggleMode()">Join kurate</button>
-                </div>
-                <button class="m-forgot" id="forgotBtn" onclick="showReset()">Forgot your password?</button>
-            </div>
-        </div>
-    </div>
-    <!-- Reset View -->
-    <div id="resetView" class="m-view">
-        <div class="m-container" style="padding-top:48px;">
-            <div class="m-logo" style="justify-content:center;">
-                <div class="m-logo-icon">K</div>
-                <span class="m-logo-text">kurate</span>
-            </div>
-            <h2 class="m-reset-title">Secure your account</h2>
-            <p class="m-reset-subtitle">Enter your details below to reset your password.</p>
-            <form id="resetForm" onsubmit="handleReset(event)">
-                <div class="m-form-group">
-                    <label class="m-label">Username</label>
-                    <input type="text" id="resetUsername" class="m-input" placeholder="Enter your username" required autocomplete="off">
-                </div>
-                <div class="m-form-group">
-                    <label class="m-label">Current Password</label>
-                    <input type="password" id="resetCurrentPw" class="m-input" placeholder="Enter current password" required>
-                </div>
-                <div class="m-form-group">
-                    <label class="m-label">New Password</label>
-                    <input type="password" id="resetNewPw" class="m-input" placeholder="Min 6 characters" required>
-                </div>
-                <div class="m-form-group">
-                    <label class="m-label">Confirm Password</label>
-                    <input type="password" id="resetConfirmPw" class="m-input" placeholder="Repeat new password" required>
-                </div>
-                <div id="resetError" class="m-error"></div>
-                <div id="resetSuccess" class="m-success"></div>
-                <button type="submit" class="m-btn" style="margin-top:20px;">Reset Password</button>
-            </form>
-            <div class="m-back-link">
-                <span class="m-footer-text">Remembered? </span>
-                <button class="m-footer-link" onclick="showAuth()">Sign in</button>
-            </div>
-        </div>
-    </div>
-    <script>
-    let isLogin = true;
-    function toggleMode() {
-        isLogin = !isLogin;
-        document.getElementById('authBtn').textContent = isLogin ? 'Start Curating' : 'Join kurate';
-        document.getElementById('toggleText').textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
-        document.getElementById('toggleLink').textContent = isLogin ? 'Join kurate' : 'Sign In';
-        document.getElementById('forgotBtn').style.display = isLogin ? '' : 'none';
-        document.getElementById('authError').className = 'm-error';
-    }
-    function showReset() {
-        document.getElementById('authView').className = 'm-view';
-        document.getElementById('resetView').className = 'm-view active';
-    }
-    function showAuth() {
-        document.getElementById('resetView').className = 'm-view';
-        document.getElementById('authView').className = 'm-view active';
-    }
-    async function handleAuth(e) {
-        e.preventDefault();
-        const username = document.getElementById('authUsername').value;
-        const password = document.getElementById('authPassword').value;
-        const errDiv = document.getElementById('authError');
-        errDiv.className = 'm-error';
-        const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-        try {
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if (data.success) {
-                localStorage.setItem('authToken', data.token);
-                window.location.href = '/home';
-            } else {
-                errDiv.textContent = data.error || 'Authentication failed';
-                errDiv.className = 'm-error visible';
-            }
-        } catch (err) {
-            errDiv.textContent = 'An error occurred. Please try again.';
-            errDiv.className = 'm-error visible';
-        }
-    }
-    async function handleReset(e) {
-        e.preventDefault();
-        const username = document.getElementById('resetUsername').value;
-        const currentPassword = document.getElementById('resetCurrentPw').value;
-        const newPassword = document.getElementById('resetNewPw').value;
-        const confirmPassword = document.getElementById('resetConfirmPw').value;
-        const errDiv = document.getElementById('resetError');
-        const successDiv = document.getElementById('resetSuccess');
-        errDiv.className = 'm-error';
-        successDiv.className = 'm-success';
-        if (!currentPassword) {
-            errDiv.textContent = 'Current password is required';
-            errDiv.className = 'm-error visible';
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            errDiv.textContent = "Passwords don't match";
-            errDiv.className = 'm-error visible';
-            return;
-        }
-        try {
-            const res = await fetch('/api/auth/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, currentPassword, newPassword })
-            });
-            const data = await res.json();
-            if (data.success) {
-                successDiv.textContent = 'Password reset successfully!';
-                successDiv.className = 'm-success visible';
-                document.getElementById('resetForm').reset();
-                setTimeout(() => { showAuth(); isLogin = true; toggleMode(); toggleMode(); }, 2000);
-            } else {
-                errDiv.textContent = data.error || 'Reset failed';
-                errDiv.className = 'm-error visible';
-            }
-        } catch (err) {
-            errDiv.textContent = 'An error occurred.';
-            errDiv.className = 'm-error visible';
-        }
-    }
-    </script>
-</body>
-</html>`;
-}
-
-
-function getMobileIndexHTML() {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>kurate - for the curious</title>
-    <link rel="icon" type="image/png" href="/favicon.png?v=2">
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div id="mainApp" class="m-app">
-        <!-- Header -->
-        <header class="m-header">
-            <div class="m-logo">
-                <div class="m-logo-icon">K</div>
-                <span class="m-logo-text">kurate</span>
-            </div>
-            <button id="logoutBtn" class="m-logout-btn">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            </button>
-        </header>
-
-        <!-- Title -->
-        <div class="m-title-section">
-            <h1 id="userGreeting" class="m-title">Curated List</h1>
-        </div>
-
-        <!-- Filter Section -->
-        <div class="m-filter-section">
-            <!-- Search -->
-            <div class="m-search-bar">
-                <svg class="m-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="searchInput" class="m-search-input" placeholder="Search through your curated list..." autocomplete="off">
-            </div>
-
-            <!-- Collections Label -->
-            <div class="m-section-label">COLLECTIONS</div>
-
-            <!-- Segmented Control -->
-            <div class="m-tabs">
-                <button id="allTab" class="m-tab active">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                    All
-                </button>
-                <button id="unreadTab" class="m-tab">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                    To Read
-                </button>
-                <button id="readTab" class="m-tab">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                    Read
-                </button>
-                <button id="favoritesTab" class="m-tab">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    Favorites
-                </button>
-            </div>
-
-            <!-- Categories Label -->
-            <div class="m-section-label">CATEGORIES</div>
-
-            <!-- Category Pills -->
-            <div class="m-categories-scroll">
-                <nav class="m-categories" id="categoryNav">
-                    <button class="m-category-pill active" data-category="all">All</button>
-                    <button class="m-category-pill" data-category="Sports">Sports</button>
-                    <button class="m-category-pill" data-category="Entertainment">Entertainment</button>
-                    <button class="m-category-pill" data-category="Business">Business</button>
-                    <button class="m-category-pill" data-category="Technology">Technology</button>
-                    <button class="m-category-pill" data-category="Education">Education</button>
-                    <button class="m-category-pill" data-category="Other">Other</button>
-                </nav>
-            </div>
-        </div>
-
-        <!-- Card Grid -->
-        <div class="m-content">
-            <div id="links" class="m-card-grid">
-                <div class="m-empty-state">Loading links...</div>
-            </div>
-        </div>
-
-        <!-- FABs -->
-        <button class="m-fab m-fab-rec" id="openRecommendedBtn">Rec</button>
-        <button class="m-fab m-fab-add" onclick="window.app.showMobileAddView()">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-    </div>
-
-    <!-- Add Link Full-screen View -->
-    <div id="mobileAddView" class="m-fullview">
-        <header class="m-fullview-header">
-            <button class="m-back-btn" onclick="window.app.hideMobileAddView()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <h2 class="m-fullview-title">Add Link</h2>
-            <div style="width:24px;"></div>
-        </header>
-        <div class="m-fullview-body">
-            <div class="m-add-card">
-                <form id="addLinkForm" class="m-add-form">
-                    <div class="m-add-group">
-                        <label class="m-add-label">LINK</label>
-                        <input type="url" id="linkUrl" class="m-add-input" placeholder="https://..." required autocomplete="off" autocapitalize="off">
-                    </div>
-                    <div class="m-add-group">
-                        <label class="m-add-label">CATEGORY</label>
-                        <div class="m-add-categories" id="mobileCatGrid">
-                            <button type="button" class="m-add-cat-btn" data-value="Sports">Sports</button>
-                            <button type="button" class="m-add-cat-btn" data-value="Entertainment">Entertainment</button>
-                            <button type="button" class="m-add-cat-btn" data-value="Business">Business</button>
-                            <button type="button" class="m-add-cat-btn" data-value="Technology">Technology</button>
-                            <button type="button" class="m-add-cat-btn" data-value="Education">Education</button>
-                            <button type="button" class="m-add-cat-btn" data-value="Other">Other</button>
-                        </div>
-                        <input type="hidden" id="linkCategory" value="">
-                    </div>
-                    <button type="submit" class="m-add-submit">Curate</button>
-                </form>
-            </div>
-            <div class="m-tip">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4B5563" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <p>Tip: You can use the kurate browser extension to save links directly from any webpage.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recommended Reading Full-screen View -->
-    <div id="recommendedModal" class="m-fullview recommended-modal hidden">
-        <header class="m-fullview-header">
-            <button class="m-back-btn" onclick="window.app.closeRecommendedPortal()">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <div class="m-fullview-title-group">
-                <h2 class="m-fullview-title">Recommended Reading</h2>
-                <p class="m-fullview-subtitle">Trending articles from the past 7 days</p>
-            </div>
-            <div style="width:24px;"></div>
-        </header>
-        <div class="m-rec-filters">
-            <button class="recommended-filter active" data-source="all">All</button>
-            <button class="recommended-filter" data-source="sports">Sports</button>
-            <button class="recommended-filter" data-source="entertainment">Entertainment</button>
-            <button class="recommended-filter" data-source="business">Business</button>
-            <button class="recommended-filter" data-source="technology">Technology</button>
-            <button class="recommended-filter" data-source="education">Education</button>
-            <button class="recommended-filter" data-source="other">Other</button>
-        </div>
-        <div id="recommendedArticles" class="m-rec-articles">
-            <div class="m-loading">
-                <div class="m-spinner"></div>
-                <p>Fetching trending articles...</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Status Toast -->
-    <div id="statusMessage" class="m-status hidden"></div>
-
-    <script src="app.js"></script>
-</body>
-</html>`;
-}
-
-
-function getMobileStylesCSS() {
-    return `
-:root {
-    --primary: #D2622A;
-    --primary-light: #FFEDD5;
-    --primary-hover: #B34E1F;
-    --bg: #FDFAF8;
-    --text-primary: #1C1917;
-    --text-secondary: #4B5563;
-    --text-tertiary: #9CA3AF;
-    --border: #E5E7EB;
-    --border-light: #F3F4F6;
-    --white: #FFFFFF;
-    --card: #FEFEFE;
-    --success: #10B981;
-    --error: #EF4444;
-    --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body {
-    overflow-x: hidden;
-    width: 100%;
-    max-width: 100vw;
-}
-body {
-    font-family: var(--font-sans);
-    background: var(--bg);
-    color: var(--text-primary);
-    -webkit-font-smoothing: antialiased;
-    -webkit-tap-highlight-color: transparent;
-}
-
-/* App Shell */
-.m-app {
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Header */
-.m-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 20px 8px;
-    background: var(--bg);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-.m-logo {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.m-logo-icon {
-    width: 24px; height: 24px;
-    background: #000;
-    border-radius: 12px;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 700;
-}
-.m-logo-text {
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-.m-logout-btn {
-    padding: 4px;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-}
-
-/* Title */
-.m-title-section {
-    padding: 4px 20px;
-}
-.m-title {
-    font-size: 18px;
-    font-weight: 700;
-}
-
-/* Filter Section */
-.m-filter-section {
-    background: var(--white);
-    border-bottom: 1px solid var(--border-light);
-    padding-top: 4px;
-    padding-bottom: 12px;
-}
-.m-search-bar {
-    display: flex;
-    align-items: center;
-    background: #F8FAFC;
-    border-radius: 10px;
-    margin: 8px 20px;
-    padding: 0 12px;
-    border: 1px solid #E2E8F0;
-}
-.m-search-icon { flex-shrink: 0; margin-right: 8px; }
-.m-search-input {
-    flex: 1;
-    height: 34px;
-    border: none;
-    background: transparent;
-    font-size: 13px;
-    font-family: var(--font-sans);
-    color: var(--text-primary);
-    outline: none;
-}
-.m-search-input::placeholder { color: var(--text-tertiary); }
-
-.m-section-label {
-    font-size: 10px;
-    font-weight: 700;
-    color: #000;
-    letter-spacing: 1px;
-    margin: 12px 20px 4px;
-}
-
-/* Segmented Control */
-.m-tabs {
-    display: flex;
-    margin: 0 20px 8px;
-    background: #F1F5F9;
-    border-radius: 10px;
-    padding: 2px;
-}
-.m-tab {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 5px 0;
-    border: none;
-    background: transparent;
-    border-radius: 8px;
-    font-size: 11px;
-    font-weight: 600;
-    font-family: var(--font-sans);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.m-tab.active {
-    background: var(--white);
-    color: var(--primary);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
-.m-tab svg { width: 16px; height: 16px; }
-
-/* Category Pills */
-.m-categories-scroll {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-left: 20px;
-    scrollbar-width: none;
-}
-.m-categories-scroll::-webkit-scrollbar { display: none; }
-.m-categories {
-    display: flex;
-    gap: 8px;
-    padding-right: 40px;
-}
-.m-category-pill {
-    padding: 5px 14px;
-    border-radius: 20px;
-    border: 1px solid #E2E8F0;
-    background: var(--white);
-    font-size: 11px;
-    font-weight: 500;
-    font-family: var(--font-sans);
-    color: var(--text-secondary);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-}
-.m-category-pill.active,
-.category-item.active {
-    background: var(--primary-light);
-    border-color: var(--primary);
-    color: var(--primary);
-    font-weight: 700;
-}
-
-/* Card Grid */
-.m-content {
-    flex: 1;
-    padding: 16px 8px 100px;
-}
-.m-card-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 16px;
-    padding: 0 8px;
-}
-
-/* Link Card */
-.link-card {
-    background: var(--white);
-    border-radius: 14px;
-    padding: 12px;
-    border: 1px solid #ECECEC;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    min-width: 0;
-    overflow: hidden;
-}
-.card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 8px;
-}
-.card-badge {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: #F3F4F6;
-    color: var(--text-secondary);
-}
-.badge-Business { background: #FFEDD5; color: #9A3412; }
-.badge-Technology { background: #DBEAFE; color: #1E40AF; }
-.badge-Design { background: #FCE7F3; color: #9D174D; }
-.badge-Sports { background: #DCFCE7; color: #166534; }
-.badge-Education { background: #E0E7FF; color: #3730A3; }
-.badge-Entertainment { background: #FCE7F3; color: #9D174D; }
-
-.star-btn {
-    background: none; border: none;
-    font-size: 20px;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    padding: 0; line-height: 1;
-}
-.star-btn:hover, .star-btn.active { color: #FBBF24; }
-
-.card-main { margin-bottom: 0; min-width: 0; overflow: hidden; }
-.card-title {
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 18px;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    margin-bottom: 4px;
-    height: 36px;
-    word-break: break-word;
-}
-.card-title a { text-decoration: none; color: inherit; display: block; overflow: hidden; text-overflow: ellipsis; }
-.card-domain {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-bottom: 12px;
-}
-
-.card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-light);
-}
-.mark-read-btn {
-    background: none; border: none;
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    font-family: var(--font-sans);
-}
-.mark-read-btn.is-read { color: var(--primary); }
-.card-actions { display: flex; gap: 4px; }
-.icon-btn {
-    background: none; border: none;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    padding: 2px;
-}
-
-/* Empty State */
-.m-empty-state, .empty-state {
-    grid-column: 1 / -1;
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--text-tertiary);
-    font-size: 14px;
-}
-
-/* FABs */
-.m-fab {
-    position: fixed;
-    width: 56px; height: 56px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 28px;
-    cursor: pointer;
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    transition: transform 0.2s;
-}
-.m-fab:active { transform: scale(0.95); }
-.m-fab-rec {
-    bottom: 160px;
-    right: 20px;
-    font-size: 13px;
-    font-weight: 800;
-    text-transform: uppercase;
-    font-family: var(--font-sans);
-}
-.m-fab-add {
-    bottom: 88px;
-    right: 20px;
-}
-
-/* Full-screen Views */
-.m-fullview {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100vh;
-    height: 100dvh;
-    background: var(--bg);
-    z-index: 500;
-    display: none;
-    flex-direction: column;
-}
-.m-fullview.active {
-    display: flex;
-}
-.m-fullview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: var(--white);
-    border-bottom: 1px solid var(--border);
-}
-.m-back-btn {
-    background: none; border: none;
-    color: var(--text-primary);
-    cursor: pointer; padding: 0;
-}
-.m-fullview-title {
-    font-size: 18px;
-    font-weight: 700;
-    text-align: center;
-}
-.m-fullview-title-group { text-align: center; flex: 1; }
-.m-fullview-subtitle {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    margin-top: 2px;
-}
-
-/* Add Link View */
-.m-fullview-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-}
-.m-add-card {
-    background: var(--white);
-    border-radius: 24px;
-    padding: 24px;
-    border: 1px solid var(--border);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-}
-.m-add-group {
-    margin-bottom: 20px;
-}
-.m-add-label {
-    display: block;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: var(--text-primary);
-    margin-bottom: 10px;
-    margin-left: 2px;
-}
-.m-add-input {
-    width: 100%;
-    background: #F8FAFC;
-    border: 1px solid #CBD5E1;
-    border-radius: 12px;
-    padding: 14px;
-    font-size: 14px;
-    font-family: var(--font-sans);
-    color: var(--text-primary);
-    -webkit-appearance: none;
-}
-.m-add-input::placeholder { color: var(--text-tertiary); }
-.m-add-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(210,98,42,0.1);
-}
-.m-add-categories {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 32px;
-}
-.m-add-cat-btn {
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--white);
-    font-size: 13px;
-    font-weight: 500;
-    font-family: var(--font-sans);
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-.m-add-cat-btn.active {
-    background: var(--primary-light);
-    border-color: var(--primary);
-    color: var(--primary);
-}
-.m-add-submit {
-    width: 100%;
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 16px;
-    border-radius: 12px;
-    font-size: 16px;
-    font-weight: 700;
-    font-family: var(--font-sans);
-    cursor: pointer;
-    box-shadow: 0 4px 8px rgba(210,98,42,0.2);
-}
-.m-add-submit:active { opacity: 0.9; }
-.m-tip {
-    margin-top: 32px;
-    display: flex;
-    gap: 12px;
-    background: rgba(0,0,0,0.03);
-    padding: 16px;
-    border-radius: 16px;
-    align-items: flex-start;
-}
-.m-tip p {
-    flex: 1;
-    font-size: 13px;
-    color: var(--text-secondary);
-    line-height: 18px;
-}
-.m-tip svg { flex-shrink: 0; margin-top: 1px; }
-
-/* Recommended Reading View */
-.recommended-modal.hidden { display: none !important; }
-.recommended-modal.active,
-.recommended-modal:not(.hidden) { display: flex !important; }
-.m-rec-filters {
-    display: flex;
-    gap: 6px;
-    padding: 8px 16px;
-    background: var(--white);
-    border-bottom: 1px solid var(--border);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-}
-.m-rec-filters::-webkit-scrollbar { display: none; }
-.recommended-filter {
-    padding: 5px 14px;
-    border-radius: 20px;
-    border: none;
-    background: #F3F4F6;
-    font-size: 12px;
-    font-weight: 600;
-    font-family: var(--font-sans);
-    color: var(--text-secondary);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 0.2s;
-}
-.recommended-filter.active {
-    background: var(--primary);
-    color: white;
-}
-.m-rec-articles {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-.recommended-article-card {
-    background: var(--white);
-    border-radius: 16px;
-    padding: 16px;
-    border: 1px solid var(--border);
-    height: 220px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    cursor: pointer;
-}
-.rec-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-.rec-source-badge {
-    padding: 4px 8px;
-    border-radius: 6px;
-    background: var(--primary-light);
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--primary);
-    text-transform: uppercase;
-}
-.rec-date {
-    font-size: 10px;
-    color: var(--text-tertiary);
-}
-.rec-title {
-    font-size: 15px;
-    font-weight: 700;
-    line-height: 20px;
-    margin-bottom: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
-.rec-desc {
-    font-size: 13px;
-    color: var(--text-secondary);
-    line-height: 18px;
-    margin-bottom: 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
-.rec-card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 12px;
-    border-top: 1px solid var(--border-light);
-}
-.rec-domain { font-size: 12px; color: var(--text-tertiary); }
-.rec-curate-btn {
-    padding: 8px 16px;
-    border-radius: 100px;
-    border: none;
-    background: var(--primary);
-    color: white;
-    font-size: 12px;
-    font-weight: 700;
-    font-family: var(--font-sans);
-    min-width: 80px;
-    cursor: pointer;
-    text-align: center;
-}
-.rec-curate-btn.curated {
-    background: var(--success);
-}
-.rec-curate-btn:active { opacity: 0.9; }
-
-/* Loading / Spinner */
-.m-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 60px;
-    gap: 16px;
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-.m-spinner {
-    width: 32px; height: 32px;
-    border: 3px solid var(--border);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Status Toast */
-.m-status {
-    position: fixed;
-    bottom: 24px;
-    left: 16px; right: 16px;
-    padding: 12px 20px;
-    border-radius: 12px;
-    background: #111827;
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    text-align: center;
-    z-index: 9999;
-    animation: slideUpToast 0.3s ease;
-}
-.m-status.hidden { display: none; }
-.m-status.error { background: var(--error); }
-.m-status.success { background: var(--success); }
-@keyframes slideUpToast {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-`;
-}
-
-
-function getMobileAppJS() {
-    return `
-class LinksApp {
-    constructor() {
-        this.links = [];
-        this.currentUser = null;
-        this.token = localStorage.getItem('authToken');
-        this.apiBase = '/api';
-        this.currentTab = this.getInitialTab();
-        this.searchQuery = '';
-        this.categoryFilter = 'all';
-        this.selectedAddCategory = '';
-        this.recommendedArticles = [];
-        this.allRecommendedArticles = [];
-        this.init();
-    }
-
-    getInitialTab() {
-        const hash = window.location.hash.replace('#', '');
-        const validTabs = ['unread', 'read', 'favorites'];
-        return validTabs.includes(hash) ? hash : 'all';
-    }
-
-    init() {
-        if (!this.token) {
-            window.location.replace('/');
-            return;
-        }
-        try {
-            const tokenData = JSON.parse(atob(this.token));
-            if (tokenData && tokenData.username) {
-                this.currentUser = { username: tokenData.username };
-            }
-        } catch (e) {
-            localStorage.removeItem('authToken');
-            window.location.replace('/');
-            return;
-        }
-        this.setupEventListeners();
-        this.showMainApp();
-        this.loadLinks();
-        this.preloadRecommendedArticles();
-    }
-
-    preloadRecommendedArticles() {
-        var cached = null;
-        try {
-            cached = JSON.parse(localStorage.getItem('recArticlesCache'));
-        } catch (e) {}
-        if (cached && cached.ts && (Date.now() - cached.ts < 15 * 60 * 1000)) {
-            this.allRecommendedArticles = cached.articles;
-            this.recommendedArticles = cached.articles;
-            return;
-        }
-        this.loadRecommendedArticles(true);
-    }
-
-    showMainApp() {
-        var greeting = document.getElementById('userGreeting');
-        if (greeting && this.currentUser) {
-            greeting.textContent = this.currentUser.username + "'s curated list";
-        }
-    }
-
-    setupEventListeners() {
-        // Logout
-        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
-
-        // Tabs
-        document.getElementById('allTab').addEventListener('click', () => this.switchTab('all'));
-        document.getElementById('unreadTab').addEventListener('click', () => this.switchTab('unread'));
-        document.getElementById('readTab').addEventListener('click', () => this.switchTab('read'));
-        document.getElementById('favoritesTab').addEventListener('click', () => this.switchTab('favorites'));
-
-        // Add Link Form
-        document.getElementById('addLinkForm').addEventListener('submit', (e) => this.handleAddLink(e));
-
-        // Search
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                this.searchQuery = e.target.value.toLowerCase();
-                this.renderLinks();
-            });
-        }
-
-        // Category Nav
-        const categoryNav = document.getElementById('categoryNav');
-        if (categoryNav) {
-            categoryNav.addEventListener('click', (e) => {
-                const pill = e.target.closest('.m-category-pill');
-                if (pill) {
-                    document.querySelectorAll('.m-category-pill').forEach(p => p.classList.remove('active'));
-                    pill.classList.add('active');
-                    this.categoryFilter = pill.dataset.category;
-                    this.renderLinks();
-                }
-            });
-        }
-
-        // Add Link Category Grid
-        const catGrid = document.getElementById('mobileCatGrid');
-        if (catGrid) {
-            catGrid.addEventListener('click', (e) => {
-                const btn = e.target.closest('.m-add-cat-btn');
-                if (btn) {
-                    document.querySelectorAll('.m-add-cat-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    this.selectedAddCategory = btn.dataset.value;
-                    document.getElementById('linkCategory').value = btn.dataset.value;
-                }
-            });
-        }
-
-        // Recommended Reading
-        const openRecBtn = document.getElementById('openRecommendedBtn');
-        if (openRecBtn) {
-            openRecBtn.addEventListener('click', () => this.openRecommendedPortal());
-        }
-
-        // Recommended Filters
-        document.querySelectorAll('.recommended-filter').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.recommended-filter').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                this.filterRecommendedArticles(e.target.dataset.source);
-            });
-        });
-
-        // Reference for non-arrow callbacks
-        var self = this;
-
-        // Auto-fetch title on URL paste
-        var linkUrlInput = document.getElementById('linkUrl');
-        if (linkUrlInput) {
-            linkUrlInput.addEventListener('paste', function() {
-                setTimeout(function() {
-                    var url = linkUrlInput.value;
-                    if (url) self.fetchUrlTitle(url);
-                }, 10);
-            });
-        }
-
-        // Browser back button support for fullscreen views
-        window.addEventListener('popstate', function(e) {
-            var addView = document.getElementById('mobileAddView');
-            var recModal = document.getElementById('recommendedModal');
-            if (addView && addView.classList.contains('active')) {
-                self.hideMobileAddView(true);
-            } else if (recModal && recModal.classList.contains('active')) {
-                self.closeRecommendedPortal(true);
-            }
-        });
-    }
-
-    switchTab(tab) {
-        this.currentTab = tab;
-        history.replaceState(null, '', tab === 'all' ? location.pathname : '#' + tab);
-        document.getElementById('allTab').classList.toggle('active', tab === 'all');
-        document.getElementById('unreadTab').classList.toggle('active', tab === 'unread');
-        document.getElementById('readTab').classList.toggle('active', tab === 'read');
-        document.getElementById('favoritesTab').classList.toggle('active', tab === 'favorites');
-        this.renderLinks();
-    }
-
-    // Mobile Add View
-    showMobileAddView() {
-        document.getElementById('mobileAddView').classList.add('active');
-        history.pushState({ view: 'addLink' }, '');
-    }
-    hideMobileAddView(skipHistory) {
-        document.getElementById('mobileAddView').classList.remove('active');
-        if (!skipHistory) { try { history.back(); } catch(e) {} }
-    }
-
-    // Recommended Reading
-    openRecommendedPortal() {
-        var modal = document.getElementById('recommendedModal');
-        modal.classList.remove('hidden');
-        modal.classList.add('active');
-        history.pushState({ view: 'recommended' }, '');
-        if (this.allRecommendedArticles.length > 0) {
-            this.renderRecommendedArticles();
-        } else {
-            this.loadRecommendedArticles();
-        }
-    }
-    closeRecommendedPortal(skipHistory) {
-        var modal = document.getElementById('recommendedModal');
-        modal.classList.add('hidden');
-        modal.classList.remove('active');
-        if (!skipHistory) { try { history.back(); } catch(e) {} }
-    }
-
-    stripHtml(html) {
-        var tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || '';
-    }
-
-    async loadRecommendedArticles(silent) {
-        var self = this;
-        var container = document.getElementById('recommendedArticles');
-        if (!silent && container) {
-            container.innerHTML = '<div class="m-loading"><div class="m-spinner"></div><p>Fetching trending articles...</p></div>';
-        }
-        try {
-            var feeds = [
-                { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
-                { name: 'BBC Sport', url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'sports' },
-                { name: 'Sky Sports', url: 'https://www.skysports.com/rss/12040', category: 'sports' },
-                { name: 'Variety', url: 'https://variety.com/feed/', category: 'entertainment' },
-                { name: 'The Hollywood Reporter', url: 'https://www.hollywoodreporter.com/feed/', category: 'entertainment' },
-                { name: 'Deadline', url: 'https://deadline.com/feed/', category: 'entertainment' },
-                { name: 'Harvard Business Review', url: 'https://hbr.org/feed', category: 'business' },
-                { name: 'Entrepreneur', url: 'https://www.entrepreneur.com/latest.rss', category: 'business' },
-                { name: 'Fortune', url: 'https://fortune.com/feed/', category: 'business' },
-                { name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml', category: 'technology' },
-                { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', category: 'technology' },
-                { name: 'Hacker News', url: 'https://hnrss.org/frontpage', category: 'technology' },
-                { name: 'Engadget', url: 'https://www.engadget.com/rss.xml', category: 'technology' },
-                { name: 'EdSurge', url: 'https://www.edsurge.com/articles_rss', category: 'education' },
-                { name: 'Open Culture', url: 'https://www.openculture.com/feed', category: 'education' },
-                { name: 'Lifehacker', url: 'https://lifehacker.com/rss', category: 'other' },
-                { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', category: 'other' }
-            ];
-
-            var allArticles = [];
-            var sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 14);
-
-            var fetchPromises = feeds.map(function(feed) {
-                var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, 8000);
-                return fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(feed.url) + '&count=10', { signal: controller.signal })
-                    .then(function(response) {
-                        clearTimeout(timeoutId);
-                        if (!response.ok) return [];
-                        return response.json();
-                    })
-                    .then(function(data) {
-                        if (data.status === 'ok' && data.items) {
-                            return data.items.map(function(item) {
-                                var pubDate = new Date(item.pubDate || item.pub_date || item.created);
-                                if (pubDate >= sevenDaysAgo) {
-                                    return {
-                                        title: item.title || 'Untitled',
-                                        description: self.stripHtml(item.description || item.content || '').substring(0, 160),
-                                        url: item.link || '#',
-                                        source: feed.name,
-                                        category: feed.category,
-                                        domain: self.extractDomain(item.link || ''),
-                                        date: item.pubDate || ''
-                                    };
-                                }
-                                return null;
-                            }).filter(Boolean);
-                        }
-                        return [];
-                    })
-                    .catch(function() {
-                        clearTimeout(timeoutId);
-                        return [];
-                    });
-            });
-
-            var results = await Promise.all(fetchPromises);
-            results.forEach(function(articles) {
-                if (articles && Array.isArray(articles)) {
-                    allArticles.push.apply(allArticles, articles);
-                }
-            });
-
-            allArticles.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
-
-            var seen = {};
-            allArticles = allArticles.filter(function(a) {
-                if (!a.url || seen[a.url]) return false;
-                seen[a.url] = true;
-                return true;
-            });
-
-            this.allRecommendedArticles = allArticles;
-            this.recommendedArticles = allArticles;
-            try {
-                localStorage.setItem('recArticlesCache', JSON.stringify({ ts: Date.now(), articles: allArticles }));
-            } catch (e) {}
-            if (container && !silent) {
-                this.renderRecommendedArticles();
-            }
-        } catch (err) {
-            if (container && !silent) {
-                container.innerHTML = '<div class="m-loading"><p>Failed to load articles.</p></div>';
-            }
-        }
-    }
-
-    filterRecommendedArticles(source) {
-        if (source === 'all') {
-            this.recommendedArticles = this.allRecommendedArticles;
-        } else {
-            this.recommendedArticles = this.allRecommendedArticles.filter(function(a) { return a.category === source; });
-        }
-        this.renderRecommendedArticles();
-    }
-
-    renderRecommendedArticles() {
-        const container = document.getElementById('recommendedArticles');
-        if (this.recommendedArticles.length === 0) {
-            container.innerHTML = '<div class="m-loading"><p>No articles found.</p></div>';
-            return;
-        }
-        container.innerHTML = this.recommendedArticles.map(function(article, i) {
-            var dateStr = article.date ? new Date(article.date).toLocaleDateString() : '';
-            var safeUrl = (article.url || '#').replace(/'/g, '&#39;');
-            return '<div class="recommended-article-card" onclick="window.open(&#39;' + safeUrl + '&#39;, &#39;_blank&#39;)">' +
-                '<div>' +
-                    '<div class="rec-card-header">' +
-                        '<span class="rec-source-badge">' + article.source + '</span>' +
-                        '<span class="rec-date">' + dateStr + '</span>' +
-                    '</div>' +
-                    '<div class="rec-title">' + article.title + '</div>' +
-                    '<div class="rec-desc">' + article.description + '</div>' +
-                '</div>' +
-                '<div class="rec-card-footer">' +
-                    '<span class="rec-domain">' + article.domain + '</span>' +
-                    '<button class="rec-curate-btn" id="recBtn' + i + '" onclick="event.stopPropagation(); window.app.curateArticle(' + i + ')">Curate</button>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-    }
-
-    async curateArticle(index) {
-        const article = this.recommendedArticles[index];
-        if (!article) return;
-        const btn = document.getElementById('recBtn' + index);
-        if (btn && btn.classList.contains('curated')) return;
-        try {
-            await this.apiRequest('/links', {
-                method: 'POST',
-                body: JSON.stringify({ url: article.url, title: article.title, category: article.source || 'other' })
-            });
-            if (btn) {
-                btn.textContent = 'Curated';
-                btn.classList.add('curated');
-                btn.disabled = true;
-            }
-            this.loadLinks(true);
-        } catch (e) {
-            this.showStatus('Failed to curate', 'error');
-        }
-    }
-
-    async loadLinks(silent) {
-        try {
-            const data = await this.apiRequest('/links');
-            if (data && data.links) {
-                this.links = data.links;
-                this.renderLinks();
-            }
-        } catch (e) {
-            if (!silent) this.showStatus('Failed to load links', 'error');
-        }
-    }
-
-    renderLinks() {
-        const container = document.getElementById('links');
-        let linksToFilter = this.links;
-
-        if (this.searchQuery) {
-            if (window.Fuse) {
-                const fuse = new Fuse(linksToFilter, {
-                    keys: [{ name: 'title', weight: 0.7 }, { name: 'category', weight: 0.2 }, { name: 'url', weight: 0.1 }],
-                    threshold: 0.4, ignoreLocation: true
-                });
-                linksToFilter = fuse.search(this.searchQuery).map(r => r.item);
-            } else {
-                const q = this.searchQuery;
-                linksToFilter = linksToFilter.filter(l =>
-                    (l.title || '').toLowerCase().includes(q) || (l.url || '').toLowerCase().includes(q)
-                );
-            }
-        }
-
-        const filtered = linksToFilter.filter(link => {
-            let tabMatch = false;
-            if (this.currentTab === 'all') tabMatch = true;
-            else if (this.currentTab === 'read') tabMatch = link.isRead === 1;
-            else if (this.currentTab === 'favorites') tabMatch = link.isFavorite === 1;
-            else tabMatch = !link.isRead || link.isRead === 0;
-            if (!tabMatch) return false;
-            if (this.categoryFilter !== 'all') {
-                if ((link.category || 'general').toLowerCase() !== this.categoryFilter.toLowerCase()) return false;
-            }
-            return true;
-        });
-
-        if (filtered.length === 0) {
-            let msg = 'No links found';
-            if (this.currentTab === 'read') msg = 'No read links';
-            else if (this.currentTab === 'favorites') msg = 'No favorites yet';
-            else if (this.currentTab === 'unread') msg = 'All caught up!';
-            container.innerHTML = '<div class="m-empty-state">' + msg + '</div>';
-            return;
-        }
-
-        const sorted = filtered.sort((a, b) => new Date(b.timestamp || b.dateAdded) - new Date(a.timestamp || a.dateAdded));
-        container.innerHTML = sorted.map(function(link) {
-            const domain = app.extractDomain(link.url);
-            const isRead = link.isRead === 1;
-            const category = link.category || 'Other';
-            var q = "&#39;";
-            var readBtn = !isRead
-                ? '<button class="mark-read-btn" onclick="app.markAsRead(' + q + link.id + q + ', true)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Mark read</button>'
-                : '<button class="mark-read-btn is-read" onclick="app.markAsRead(' + q + link.id + q + ', false)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 4 12 14.01 9 11.01"/></svg>Read</button>';
-            return '<div class="link-card" data-id="' + link.id + '">' +
-                '<div class="card-top">' +
-                    '<span class="card-badge badge-' + category + '">' + category + '</span>' +
-                    '<button class="star-btn ' + (link.isFavorite ? 'active' : '') + '" onclick="app.toggleFavorite(' + q + link.id + q + ', ' + !link.isFavorite + ')">' + (link.isFavorite ? '★' : '☆') + '</button>' +
-                '</div>' +
-                '<div class="card-main">' +
-                    '<h3 class="card-title"><a href="' + link.url + '" target="_blank">' + (link.title || domain) + '</a></h3>' +
-                    '<div class="card-domain">' + domain + '</div>' +
-                '</div>' +
-                '<div class="card-footer">' +
-                    readBtn +
-                    '<div class="card-actions">' +
-                        '<button class="icon-btn" onclick="app.deleteLink(' + q + link.id + q + ')">' +
-                            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
-                        '</button>' +
-                    '</div>' +
-                '</div>' +
-            '</div>';
-        }).join('');
-    }
-
-    extractDomain(url) {
-        try { return new URL(url).hostname.replace('www.', ''); } catch { return url; }
-    }
-
-    async handleAddLink(e) {
-        e.preventDefault();
-        const urlInput = document.getElementById('linkUrl');
-        const catInput = document.getElementById('linkCategory');
-        const url = urlInput ? urlInput.value.trim() : '';
-        const category = catInput ? catInput.value : 'general';
-        if (!url) { this.showStatus('URL is required', 'error'); return; }
-        urlInput.value = '';
-        if (catInput) catInput.value = '';
-        document.querySelectorAll('.m-add-cat-btn').forEach(b => b.classList.remove('active'));
-        this.hideMobileAddView();
-        try {
-            await this.apiRequest('/links', { method: 'POST', body: JSON.stringify({ url, title: '', category }) });
-            await this.loadLinks(true);
-        } catch (e) { await this.loadLinks(true); }
-    }
-
-    async fetchUrlTitle(url) {
-        try {
-            const res = await fetch('/api/meta?url=' + encodeURIComponent(url));
-            const data = await res.json();
-            // Title auto-populated on server side when saving
-        } catch (e) {}
-    }
-
-    async markAsRead(id, isRead) {
-        try {
-            await this.apiRequest('/links/mark-read', { method: 'POST', body: JSON.stringify({ linkId: id, isRead }) });
-            const link = this.links.find(l => l.id == id);
-            if (link) { link.isRead = isRead ? 1 : 0; this.renderLinks(); }
-        } catch (e) { this.showStatus('Failed to update', 'error'); }
-    }
-
-    async toggleFavorite(id, isFavorite) {
-        try {
-            await this.apiRequest('/links/toggle-favorite', { method: 'POST', body: JSON.stringify({ linkId: id, isFavorite }) });
-            const link = this.links.find(l => l.id == id);
-            if (link) { link.isFavorite = isFavorite ? 1 : 0; this.renderLinks(); }
-        } catch (e) { this.showStatus('Failed to update', 'error'); }
-    }
-
-    async deleteLink(id) {
-        try {
-            await this.apiRequest('/links', { method: 'DELETE', body: JSON.stringify({ linkId: id }) });
-            this.links = this.links.filter(l => l.id != id);
-            this.renderLinks();
-        } catch (e) { this.showStatus('Failed to delete', 'error'); }
-    }
-
-    async apiRequest(endpoint, options = {}) {
-        const res = await fetch(this.apiBase + endpoint, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + this.token,
-                ...(options.headers || {})
-            }
-        });
-        if (res.status === 401) { localStorage.removeItem('authToken'); window.location.replace('/'); return; }
-        return res.json();
-    }
-
-    logout() {
-        localStorage.removeItem('authToken');
-        window.location.replace('/');
-    }
-
-    showStatus(message, type = 'success') {
-        const el = document.getElementById('statusMessage');
-        if (!el) return;
-        el.textContent = message;
-        el.className = 'm-status ' + type;
-        setTimeout(() => { el.className = 'm-status hidden'; }, 3000);
-    }
-}
-
-const app = new LinksApp();
-window.app = app;
-`;
-}
 
